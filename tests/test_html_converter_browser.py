@@ -42,6 +42,9 @@ def test_app_html_export_with_legacy_options():
         html=(ROOT/'index.html').read_text()
         html=re.sub(r'<script[^>]+src="[^"]+"[^>]*></script>','',html)
         html=re.sub(r'<link rel="stylesheet"[^>]*>','',html)
+        # The export test does not test preview navigation. A passive element avoids
+        # an upstream Chromium/Edge about:blank sandboxed-iframe crash on CI runners.
+        html=re.sub(r'<iframe id="previewFrame"[^>]*></iframe>', '<div id="previewFrame"></div>', html)
         page.set_content(html)
         for f in ['vendor/jszip.min.js','assets/ai-intelligence.js','assets/html-converter.js','assets/app.js']:
             page.add_script_tag(content=(ROOT/f).read_text())
