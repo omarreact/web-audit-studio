@@ -1,6 +1,7 @@
-/** Planned cross-stack adapter contract. WordPress FSE is the first experimental adapter. */
+/** Site profile and target contracts. HTML safe-static and WordPress FSE are experimental. */
 export type SourceProvenance = 'public-capture' | 'authorized-repository' | 'inferred' | 'generated';
 export type ConversionStatus = 'experimental' | 'review-required' | 'validated';
+export type ConversionTarget = 'html-static' | 'wordpress-fse';
 export interface SitePage {
   path: string;
   url: string | null;
@@ -22,7 +23,7 @@ export interface SiteProfile {
     design: {colors: string[]; fontFamilies: string[]};
   };
   pages: SitePage[];
-  conversion: {target: 'wordpress-fse'; editableCoreBlocks: string[]; fallback: string; requiresReview: string[]; guaranteedSourceParity: false};
+  conversion: {target: ConversionTarget; editableCoreBlocks: string[]; fallback: string; requiresReview: string[]; guaranteedSourceParity: false};
 }
 export interface ConversionArtifact {
   path: string;
@@ -35,4 +36,24 @@ export interface TargetStackAdapter {
   status: ConversionStatus;
   convert(profile: SiteProfile, files: ConversionArtifact[]): Promise<ConversionArtifact[]>;
   validate?(files: ConversionArtifact[]): Promise<{passed: boolean; warnings: string[]}>;
+}
+
+export interface HTMLConversionAudit {
+  path: string;
+  title: string;
+  headingCount: number;
+  removed: {scripts: number; embeds: number; executableAttributes: number; unsafeUrls: number; disabledForms: number; disabledButtons: number};
+  warnings: string[];
+  externalReferences: string[];
+  originalPrivateSourceRecovered: false;
+}
+export interface HTMLConversionReport {
+  schemaVersion: 1;
+  adapter: 'html-static';
+  adapterVersion: string;
+  strategy: 'safe-static';
+  target: {stack: 'HTML/CSS'; runtime: 'browser'; buildStepRequired: false};
+  pages: HTMLConversionAudit[];
+  warnings: string[];
+  aiExecution: string;
 }

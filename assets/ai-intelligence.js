@@ -29,6 +29,7 @@
     return values.filter(v=>/^#[0-9a-f]{3,6}$/.test(v)).slice(0,12);
   }
   function analyze(input) {
+    const target = input.target === 'html-static' ? 'html-static' : 'wordpress-fse';
     const files = (Array.isArray(input.files) ? input.files : []).slice(0,500);
     const html = files.filter(f => /\.html?$/i.test(f.path || '')).slice(0,MAX_PAGES);
     const css = files.filter(f=>/\.css$/i.test(f.path||'')).map(f=>String(f.content||'').slice(0,MAX_FILE_CHARS)).join('\n').slice(0,MAX_FILE_CHARS);
@@ -48,12 +49,12 @@
     const evidence=(Array.isArray(input.evidence)?input.evidence:[]).slice(0,20).map(e=>({stack:limit(e.stack,80),why:limit(e.why,200)}));
     const customFonts=[...new Set([...css.matchAll(/font-family\s*:\s*([^;{}]+)/gi)].map(m=>limit(m[1],100)))].slice(0,8);
     const needsReview=[];
-    if(pages.some(p=>p.forms.length))needsReview.push('Forms require a WordPress-native handler and validated authentication/CSRF flows.');
-    if(pages.some(p=>p.hasScripts))needsReview.push('Captured JavaScript behavior is not reconstructed or executed.');
+    if(pages.some(p=>p.forms.length))needsReview.push(target==='html-static' ? 'Form submissions cannot run in safe-static HTML; captured forms become disabled placeholders.' : 'Forms require a WordPress-native handler and validated authentication/CSRF flows.');
+    if(pages.some(p=>p.hasScripts))needsReview.push(target==='html-static' ? 'Executable captured JavaScript is omitted from safe-static HTML output.' : 'Captured JavaScript behavior is not reconstructed or executed.');
     if(!pages.length)needsReview.push('No captured HTML pages; full conversion cannot be inferred.');
     needsReview.push('Public pages cannot reveal private APIs, databases, authentication or unpublished source.');
     const components={headings:pages.reduce((n,p)=>n+p.headings.length,0),images:pages.reduce((n,p)=>n+p.images.length,0),forms:pages.reduce((n,p)=>n+p.forms.length,0),buttons:pages.reduce((n,p)=>n+p.buttons.length,0)};
-    return {schemaVersion:1,engineVersion:VERSION,mode:'local-rules',generatedAt:new Date().toISOString(),source:{origin:limit(input.origin,500),stack:limit(input.stack||'Unknown',80),stackConfidence:Number(input.confidence)||0,evidence},site:{pageCount:pages.length,assetCount:files.length-pages.length,components,design:{colors:colors(css),fontFamilies:customFonts}},pages,conversion:{target:'wordpress-fse',editableCoreBlocks:['heading','paragraph','image','list','buttons','group'],fallback:'core/html for unsupported/complex elements',requiresReview:needsReview,guaranteedSourceParity:false},llm:null};
+    return {schemaVersion:1,engineVersion:VERSION,mode:'local-rules',generatedAt:new Date().toISOString(),source:{origin:limit(input.origin,500),stack:limit(input.stack||'Unknown',80),stackConfidence:Number(input.confidence)||0,evidence},site:{pageCount:pages.length,assetCount:files.length-pages.length,components,design:{colors:colors(css),fontFamilies:customFonts}},pages,conversion:{target,editableCoreBlocks:target==='wordpress-fse'?['heading','paragraph','image','list','buttons','group']:[],fallback:target==='html-static'?'Original HTML/CSS is sanitized; dynamic behavior is not executed.':'core/html for unsupported/complex elements',requiresReview:needsReview,guaranteedSourceParity:false},llm:null};
   }
   function inline(node) {
     if (!node) return '';

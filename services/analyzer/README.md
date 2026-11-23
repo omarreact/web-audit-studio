@@ -16,3 +16,7 @@ Open `http://127.0.0.1:8000`, load a captured site, and set the optional backend
 Optional environment variables: `OLLAMA_MODEL`, `OPENAI_MODEL`, `OPENAI_API_KEY` and `WEB_AUDIT_ALLOWED_ORIGINS`. Keep secrets server-side; never add an API key to JavaScript, localStorage or a Git commit. `OLLAMA_URL` is restricted to localhost port 11434 to avoid arbitrary server-side requests. OpenAI calls may incur charges **only when a key is configured and the user explicitly opts in**.
 
 Security boundaries: read-only model assessment, no execution of generated code, no unauthorized website crawling, no arbitrary LLM endpoint, bounded request size, origin allowlist, strict response contract. If exposing this API beyond localhost, add authentication, per-user rate limits, observability, TLS and a non-public service boundary first.
+
+## HTML target
+
+POST `/v1/analyze` accepts `targetStack: "html-static"` (default `wordpress-fse` for compatibility). The browser sends bounded site metadata only. Ollama is tried locally first; cloud requires explicit request consent and a server-side key. The browser's deterministic HTML adapter generates output; the model only reviews migration risk.
