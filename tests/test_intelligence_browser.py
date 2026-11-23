@@ -1,6 +1,9 @@
 """Chromium component tests that do not require browser navigation or external CDN."""
 from pathlib import Path
 import shutil
+import os
+import threading
+from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from playwright.sync_api import sync_playwright
 ROOT=Path(__file__).resolve().parents[1]
 BROWSER=shutil.which('chromium') or shutil.which('chromium-browser') or None
@@ -44,10 +47,24 @@ def test_app_demo_and_native_zip():
     import re
     html=re.sub(r'<script[^>]+src="[^"]+"[^>]*></script>','',html)
     html=re.sub(r'<link rel="stylesheet"[^>]*>','',html)
-    page.set_content(html)
-    page.add_script_tag(content=(ROOT/'vendor/jszip.min.js').read_text())
-    page.add_script_tag(content=(ROOT/'assets/ai-intelligence.js').read_text())
-    page.add_script_tag(content=(ROOT/'assets/app.js').read_text())
+    if os.getenv('GITHUB_ACTIONS') == 'true':
+      # Chromium on GitHub runners can abort when a sandboxed srcdoc iframe is
+      # navigated under an opaque about:blank origin. Serve a real loopback origin.
+      class QuietStatic(SimpleHTTPRequestHandler):
+        def __init__(self,*args,**kwargs): super().__init__(*args,directory=str(ROOT),**kwargs)
+        def log_message(self,*args): pass
+      server=ThreadingHTTPServer(('127.0.0.1',0),QuietStatic)
+      threading.Thread(target=server.serve_forever,daemon=True).start()
+      page.route('https://cdn.tailwindcss.com/**',lambda route:route.abort())
+      page.route('https://cdnjs.cloudflare.com/**',lambda route:route.abort())
+      page.goto(f'http://127.0.0.1:{server.server_port}/',wait_until='domcontentloaded')
+    else:
+      # The hosted execution sandbox blocks all loopback navigation, so mount
+      # source in a browser DOM directly for the local component test instead.
+      page.set_content(html)
+      page.add_script_tag(content=(ROOT/'vendor/jszip.min.js').read_text())
+      page.add_script_tag(content=(ROOT/'assets/ai-intelligence.js').read_text())
+      page.add_script_tag(content=(ROOT/'assets/app.js').read_text())
     page.locator('#demoBtn').click()
     assert not page.locator('#aiAnalyzeBtn').is_disabled()
     page.locator('#aiAnalyzeBtn').click()
@@ -73,3 +90,4 @@ def test_app_demo_and_native_zip():
         php=Path(tmp)/'functions.php';php.write_bytes(zip.read('functions.php'))
         assert subprocess.run(['php','-l',str(php)],capture_output=True).returncode==0
     browser.close()
+    if os.getenv('GITHUB_ACTIONS') == 'true': server.shutdown()
