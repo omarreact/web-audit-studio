@@ -78,3 +78,8 @@ python tests/e2e.py    # optional: requires Playwright, Chromium and local loopb
 ```
 
 The automated core test exercises safe paths, linked URL rewriting, import discovery and ZIP file structure for six framework exports. Generated WordPress PHP passed `php -l`. Browser test automation was attempted but the available Chromium environment blocks *all* document navigation with `ERR_BLOCKED_BY_ADMINISTRATOR`; accordingly visual and end-to-end validation must still be performed in an unrestricted browser. See `QA-RESULTS.md`.
+
+
+## Experimental hybrid AI and editable WordPress conversion (feature branch)
+
+The new panel uses **offline local rules by default** (not an LLM). Optional AI enrichment is available via the Python/Ollama service with explicit cloud consent; see [`services/analyzer/README.md`](services/analyzer/README.md). The existing eight exports remain available. An experimental **Editable WordPress FSE** export builds native Gutenberg blocks, includes conversion warnings, and produces `web-audit-pages.json`. Review generated content on a staging WordPress install. A draft-only page importer is under [`wordpress/web-audit-importer/`](wordpress/web-audit-importer/) and must be installed separately. See [`AI-ROADMAP.md`](AI-ROADMAP.md) for all fidelity/security limitations.

@@ -8,3 +8,5 @@ html{font-size:14px;scroll-behavior:smooth}body{line-height:1.5}h1,h2,h3,p{margi
 @media(min-width:768px){.md\:p-5{padding:20px}.md\:px-7{padding-left:28px;padding-right:28px}}
 @media(min-width:1024px){.lg\:grid-cols-4{grid-template-columns:repeat(4,minmax(0,1fr))}.lg\:grid-cols-\[1fr_350px\]{grid-template-columns:minmax(0,1fr) 350px}}
 @media(max-width:680px){main{padding:12px!important}.btn{padding:8px 10px}header{padding:12px!important}.explorer{min-height:200px}.inspector{max-height:none!important;overflow:visible}#previewFrame{height:360px!important}}
+
+.ai-results{white-space:pre-wrap;overflow-wrap:anywhere;border:1px solid var(--line,#26374b);background:rgba(0,0,0,.16);border-radius:10px;padding:14px;max-height:300px;overflow:auto;line-height:1.6}

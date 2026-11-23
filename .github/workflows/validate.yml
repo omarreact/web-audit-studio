@@ -4,8 +4,11 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
-  core-tests:
+  javascript-and-php:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -13,6 +16,26 @@ jobs:
         with:
           node-version: '22'
       - name: Check JavaScript syntax
-        run: node --check assets/app.js
-      - name: Run core tests
+        run: |
+          node --check assets/app.js
+          node --check assets/ai-intelligence.js
+      - name: Run existing core tests
         run: node tests/core.test.cjs
+      - name: Validate WordPress plugin PHP syntax
+        run: php -l wordpress/web-audit-importer/web-audit-importer.php
+
+  hybrid-service-and-browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: services/analyzer/requirements.txt
+      - name: Install test dependencies
+        run: |
+          python -m pip install -r services/analyzer/requirements.txt pytest playwright
+          python -m playwright install --with-deps chromium
+      - name: Run bounded AI service and Chromium export tests
+        run: python -m pytest -q tests/test_ai_service.py tests/test_intelligence_browser.py
