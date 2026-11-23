@@ -20,6 +20,7 @@ jobs:
           node --check assets/app.js
           node --check assets/ai-intelligence.js
           node --check assets/html-converter.js
+          node --check assets/next-converter.js
       - name: Run existing core tests
         run: node tests/core.test.cjs
       - name: Validate WordPress plugin PHP syntax
@@ -39,4 +40,33 @@ jobs:
           python -m pip install -r services/analyzer/requirements.txt pytest playwright
           python -m playwright install --with-deps chromium
       - name: Run bounded AI service and Chromium export tests
-        run: python -m pytest -q tests/test_ai_service.py tests/test_html_target_service.py tests/test_intelligence_browser.py tests/test_html_converter_browser.py
+        run: python -m pytest -q tests/test_ai_service.py tests/test_html_target_service.py tests/test_intelligence_browser.py tests/test_html_converter_browser.py tests/test_next_target_service.py tests/test_next_converter_browser.py
+
+  generated-next-static-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Playwright Chromium
+        run: |
+          python -m pip install playwright
+          python -m playwright install --with-deps chromium
+      - name: Generate test fixture from converter
+        run: |
+          python tests/create_next_fixture.py --output /tmp/next-fixture.zip
+          mkdir -p /tmp/next-fixture && cd /tmp/next-fixture && unzip -q ../next-fixture.zip
+      - name: Install generated Next.js project dependencies
+        working-directory: /tmp/next-fixture
+        run: npm install --no-audit --no-fund
+      - name: Typecheck and build generated Next.js export
+        working-directory: /tmp/next-fixture
+        run: |
+          npm run typecheck
+          npm run build
+          test -f out/index.html
+          test -f out/about/index.html

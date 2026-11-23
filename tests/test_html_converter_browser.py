@@ -50,6 +50,7 @@ def test_app_html_export_with_legacy_options():
             page.add_script_tag(content=(ROOT/f).read_text())
         page.locator('#demoBtn').click()
         assert page.locator('#downloadSafeHtml').is_enabled()
+        page.locator('#aiTargetStack').select_option('html-static')  # target regression with Next-first default
         assert page.locator('#aiTargetStack').input_value()=='html-static'
         page.locator('#aiAnalyzeBtn').click()
         assert 'HTML/CSS safe-static' in page.locator('#aiResult').inner_text()
