@@ -86,6 +86,9 @@ def test_next_html_wordpress_exports_remain_independent():
         html=(ROOT/'index.html').read_text()
         html=re.sub(r'<script[^>]+src="[^"]+"[^>]*></script>','',html)
         html=re.sub(r'<link rel="stylesheet"[^>]*>','',html)
+        # The CI browser can crash when a sandboxed about:blank preview iframe navigates.
+        # This test checks exports, not iframe rendering, so use a passive placeholder.
+        html=re.sub(r'<iframe id="previewFrame"[^>]*></iframe>', '<div id="previewFrame"></div>', html)
         page.set_content(html)
         page.add_style_tag(content=(ROOT/'assets/app.css').read_text())
         for path in ['vendor/jszip.min.js','assets/ai-intelligence.js','assets/html-converter.js','assets/next-converter.js','assets/app.js']:
