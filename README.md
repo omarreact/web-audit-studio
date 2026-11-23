@@ -49,6 +49,8 @@ Use **Load demo** first to test the editor, preview, downloads, and reports with
 
 **HTML:** fetched file bytes with rewritten references to captured same-origin assets and pages. A redirect `index.html` is generated if the scanned entry page is not `/`.
 
+**HTML safe-static (Hybrid AI panel):** separate experimental target adapter (`assets/html-converter.js`) produces multi-page HTML, captured CSS/media, a structured conversion report and warnings. Executable scripts, event handlers, embedded frames and form submissions are deliberately removed/disabled. Existing fidelity-oriented HTML ZIP is unchanged. Supports offline local deterministic conversion; optional Ollama or consented cloud AI only reviews a bounded metadata profile and **never** writes or executes conversion code. No original backend or pixel-parity guarantee.
+
 **Raw Evidence:** actual captured file contents and crawl report JSON. Uncaptured files are never fabricated.
 
 **WordPress FSE:** block theme metadata (`style.css`, `theme.json`), `templates/`, `parts/`, `functions.php`, public assets, plus captured HTML mapped into `wp:html` blocks. Theme assets are enqueued from `functions.php`. Other page template slugs need corresponding pages in WordPress. This is **not** recovered PHP/theme/plugin source.
@@ -73,13 +75,16 @@ Use **Load demo** first to test the editor, preview, downloads, and reports with
 
 ```bash
 node --check assets/app.js
+node --check assets/html-converter.js
 node tests/core.test.cjs
+python -m pytest -q tests/test_html_target_service.py tests/test_html_converter_browser.py
 python tests/e2e.py    # optional: requires Playwright, Chromium and local loopback access
 ```
 
 The automated core test exercises safe paths, linked URL rewriting, import discovery and ZIP file structure for six framework exports. Generated WordPress PHP passed `php -l`. Browser test automation was attempted but the available Chromium environment blocks *all* document navigation with `ERR_BLOCKED_BY_ADMINISTRATOR`; accordingly visual and end-to-end validation must still be performed in an unrestricted browser. See `QA-RESULTS.md`.
 
+## Experimental hybrid AI & editable WordPress conversion (feature branch)
 
-## Experimental hybrid AI and editable WordPress conversion (feature branch)
+See [`AI-ROADMAP.md`](AI-ROADMAP.md) for architecture, fidelity and security limits. In the UI select **Load demo** or scan a permitted public website, then select **Analyze captured site**. The default is *local deterministic rules*, not LLM-powered AI. **Editable WordPress FSE ZIP (experimental)** adds native Gutenberg blocks for common semantic elements and includes `web-audit-analysis.json`, `web-audit-pages.json` and conversion warnings. Existing eight export modes are unmodified.
 
-The new panel uses **offline local rules by default** (not an LLM). Optional AI enrichment is available via the Python/Ollama service with explicit cloud consent; see [`services/analyzer/README.md`](services/analyzer/README.md). The existing eight exports remain available. An experimental **Editable WordPress FSE** export builds native Gutenberg blocks, includes conversion warnings, and produces `web-audit-pages.json`. Review generated content on a staging WordPress install. A draft-only page importer is under [`wordpress/web-audit-importer/`](wordpress/web-audit-importer/) and must be installed separately. See [`AI-ROADMAP.md`](AI-ROADMAP.md) for all fidelity/security limitations.
+Optional actual local AI uses the Python service described in [`services/analyzer/README.md`](services/analyzer/README.md), and requires an installed local Ollama model. Cloud AI is never automatic, requires a server-held API key and explicit per-action consent. The WordPress page importer is an optional **separately installed** plugin under [`wordpress/web-audit-importer/`](wordpress/web-audit-importer/); it creates draft pages only and must be tested in staging.

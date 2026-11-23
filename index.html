@@ -7,6 +7,7 @@
 <script>if(window.tailwind)tailwind.config={darkMode:'class',theme:{extend:{colors:{ink:'#0a101b',panel:'#111b2b',border:'#27354a',accent:'#38bdf8'}}}}</script>
 <script src="vendor/jszip.min.js"></script>
 <script src="assets/ai-intelligence.js"></script>
+<script src="assets/html-converter.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.52.2/min/vs/loader.min.js"></script>
 <link rel="stylesheet" href="assets/app.css">
 </head>
@@ -30,7 +31,8 @@
  <section class="surface rounded-xl p-4 md:p-5 space-y-3" id="aiIntelligence">
   <div class="flex items-center justify-between gap-3 flex-wrap"><div><h2 class="font-bold text-lg">AI Website Intelligence <span id="aiMode" class="badge">Hybrid · local rules</span></h2><p class="text-xs subtle mt-1">Analyze public capture locally. Optional Ollama/cloud enrichment requires a separate trusted Python service; cloud transfer requires explicit consent.</p></div><button id="aiAnalyzeBtn" class="btn primary" disabled>✦ Analyze captured site</button></div>
   <div class="flex gap-3 flex-wrap items-center text-xs"><label class="flex flex-col gap-1">Optional AI service URL <input id="aiEndpoint" class="field w-72 max-w-full" type="url" placeholder="http://127.0.0.1:8788" autocomplete="off" spellcheck="false"></label><label class="flex gap-2 items-center"><input type="checkbox" id="aiCloudConsent" class="accent-sky-400"> Allow cloud AI only if local model unavailable</label></div>
-  <div class="flex gap-2 flex-wrap items-center"><button id="downloadEditableWp" disabled class="btn">↓ Editable WordPress FSE ZIP (experimental)</button><span class="text-xs subtle">Existing WordPress export remains unchanged · native blocks need visual review</span></div>
+  <div class="flex flex-wrap gap-2 items-end"><label class="flex flex-col gap-1 text-xs">Conversion target <select class="field" id="aiTargetStack" aria-label="AI conversion target"><option value="html-static" selected>HTML + CSS · safe static</option><option value="wordpress-fse">WordPress FSE · editable blocks</option></select></label><button id="downloadSafeHtml" disabled class="btn primary">↓ Convert to HTML ZIP</button><button id="downloadEditableWp" disabled class="btn">↓ Editable WordPress FSE ZIP (experimental)</button></div>
+  <p class="text-xs subtle">HTML conversion preserves captured markup/style/assets where supported, but removes executable scripts, embeds and form submission. Legacy HTML Website export remains unchanged. Download includes evidence and review notes.</p>
   <pre id="aiResult" class="ai-results text-xs" hidden aria-live="polite"></pre>
  </section>
  <section class="surface rounded-xl overflow-hidden"><div class="px-4 py-3 border-b border-slate-700/60 flex items-center justify-between gap-2 flex-wrap"><h2 class="font-bold">03 Workspace <span id="workspaceCount" class="text-xs subtle font-normal">0 files</span></h2><div class="flex items-center gap-2"><button id="searchBtn" class="btn">⌕ Find file <span class="kbd">Ctrl+P</span></button><button id="newFileBtn" class="btn">＋ File</button><button id="saveBtn" class="btn">Save edit <span class="kbd">Ctrl+S</span></button></div></div>

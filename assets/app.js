@@ -40,7 +40,7 @@ function robotsAllowed(url){if(!$('robots').checked)return true;const path=new U
 async function sitemapUrls(signal){if(!$('sitemap').checked)return [];const pages=new Set(),visited=new Set(),queue=[state.origin+'/sitemap.xml',...state.sitemaps];while(queue.length&&visited.size<15&&pages.size<200){const url=queue.shift();if(visited.has(url)||!sameOrigin(url)||!/\.xml(?:$|\?)/i.test(url))continue;visited.add(url);try{const {text:xml}=await fetchText(url,signal);const doc=new DOMParser().parseFromString(xml,'application/xml');if(doc.querySelector('parsererror'))continue;for(const loc of doc.querySelectorAll('sitemap > loc')){const next=normalize(loc.textContent);if(next&&sameOrigin(next)&&queue.length<30)queue.push(next);}for(const loc of doc.querySelectorAll('url > loc')){const p=normalize(loc.textContent);if(p&&sameOrigin(p))pages.add(p);}}catch(e){if(e.name==='AbortError')throw e;}}return [...pages];} 
 async function captureAsset(url,signal,depth=0){if(state.assets.has(url))return;if(state.assets.size>=250){state.logs.push('Asset limit reached (250)');return;}const path=nameFromUrl(url);state.assets.set(url,{status:'fetching',path,size:0});updateStatus('Downloading '+url);try{const r=await fetchBytes(url,signal);if(state.totalAssetBytes+r.bytes.length>100*1024*1024)throw Error('100 MB total asset limit');addFile(path,r.bytes,{url,type:r.type});state.totalAssetBytes+=r.bytes.length;state.assets.set(url,{status:'success',path,size:r.bytes.length,type:r.type});state.failed.delete(url);if(r.bytes.length>1024*1024&&/^image\//i.test(r.type))state.findings.push({page:url,code:'large-image',severity:'low',detail:`Large image (${bytes(r.bytes.length)})`});if(depth<3&&$('followImports').checked){let children=[];if(/text\/css|\.css(?:\?|$)/i.test(r.type+' '+url))children=cssAssets(dec.decode(r.bytes),url);if(/javascript|\.m?js(?:\?|$)/i.test(r.type+' '+url))children=scriptAssets(dec.decode(r.bytes),url);for(const child of children){if(signal.aborted)throw new DOMException('Aborted','AbortError');if(state.assets.size>=250)break;if(!state.assets.has(child)){await delay(80,signal);await captureAsset(child,signal,depth+1);}}}}catch(e){if(e.name==='AbortError')throw e;state.errors++;state.assets.set(url,{status:'failed',path,size:0,error:e.message});state.failed.set(url,e.message);}updateStatus();} 
 async function scan(){const input=$('target').value.trim();let u;try{u=new URL(input);if(!/^https?:$/.test(u.protocol))throw Error();u.hash='';}catch{modal('Invalid URL','Enter a complete HTTP(S) URL, for example https://example.com');return;}reset();setBusy(true);state.origin=u.origin;state.root=u.href;state.started=new Date().toISOString();state.abort=new AbortController();const signal=state.abort.signal,max=Math.max(1,Math.min(100,parseInt($('maxPages').value)||20)),maxDepth=Math.max(0,Math.min(4,+$('depth').value||0)),pause=Math.max(250,Math.min(10000,+$('delay').value||600));const queue=[{url:u.href,depth:0}],pendingAssets=new Set();try{if($('robots').checked)await getRobots(signal);const maps=await sitemapUrls(signal);for(const loc of maps)if(maxDepth>0&&queue.length<500)queue.push({url:loc,depth:1});while(queue.length&&state.pages.size<max){if(signal.aborted)throw new DOMException('Aborted','AbortError');const job=queue.shift();if(!job||state.visited.has(job.url)||job.depth>maxDepth||!sameOrigin(job.url)||!robotsAllowed(job.url))continue;state.visited.add(job.url);updateStatus('Fetching page '+job.url);try{const r=await fetchText(job.url,signal);if(r.type&&!/html|xhtml|^text\/plain/i.test(r.type))throw Error('Not HTML ('+r.type+')');const path=nameFromUrl(job.url,true);addFile(path,r.text,{url:job.url,type:'text/html'});state.pages.set(job.url,{path,depth:job.depth,status:'success'});const doc=htmlDoc(r.text);if(state.pages.size===1)detect(r.text,doc,r.headers);findIssues(doc,job.url,r.text);if($('captureAssets').checked)for(const asset of collectAssets(doc,job.url))pendingAssets.add(asset);if(job.depth<maxDepth)for(const link of collectPageUrls(doc,job.url)){if(!state.visited.has(link)&&!queue.some(x=>x.url===link)&&queue.length<500)queue.push({url:link,depth:job.depth+1});}}catch(e){if(e.name==='AbortError')throw e;state.errors++;state.failed.set(job.url,e.message);flash(`Could not read ${job.url}: ${e.message}. Browser CORS may block access.`,true);}updateStatus();if(queue.length)await delay(pause,signal);}if($('captureAssets').checked){for(const asset of pendingAssets){if(signal.aborted)throw new DOMException('Aborted','AbortError');if(state.assets.size>=250)break;await delay(Math.max(80,Math.round(pause/3)),signal);await captureAsset(asset,signal);}}state.finished=new Date().toISOString();if(!state.pages.size)flash('Nothing captured. The target may block browser reads (CORS). Import an authorized ZIP or load the demo.',true);else flash(`Captured ${state.pages.size} pages and ${[...state.assets.values()].filter(a=>a.status==='success').length} assets. Verify the reconstruction before use.`);}catch(e){if(e.name==='AbortError')flash('Scan stopped. Partial files are retained and exportable.',true);else flash('Scan error: '+e.message,true);}finally{state.finished=new Date().toISOString();setBusy(false);$('globalState').textContent='Ready';updateStatus('Scan complete · '+state.files.size+' files in workspace');refreshAll();if(state.pages.size)preview();}} 
-function refreshAll(){renderStack();renderFiles();renderPages();renderFindings();renderAssets();renderExports();$('reportBtn').disabled=$('csvBtn').disabled=state.files.size===0;$('aiAnalyzeBtn').disabled=$('downloadEditableWp').disabled=state.files.size===0;if(state.files.size&&!state.current)openFile([...state.files.keys()][0]);}
+function refreshAll(){renderStack();renderFiles();renderPages();renderFindings();renderAssets();renderExports();$('reportBtn').disabled=$('csvBtn').disabled=state.files.size===0;$('aiAnalyzeBtn').disabled=$('downloadEditableWp').disabled=$('downloadSafeHtml').disabled=state.files.size===0;if(state.files.size&&!state.current)openFile([...state.files.keys()][0]);}
 function renderFiles(){const entries=[...state.files.keys()].sort((a,b)=>a.localeCompare(b));const tree={};for(const path of entries){let cur=tree;for(const part of path.split('/'))cur=cur[part]??={};}const build=(obj,parent='',level=0)=>Object.entries(obj).sort((a,b)=>{const ad=Object.keys(a[1]).length>0,bd=Object.keys(b[1]).length>0;return Number(bd)-Number(ad)||a[0].localeCompare(b[0]);}).map(([key,children])=>{const path=parent?parent+'/'+key:key,folder=Object.keys(children).length>0;if(folder)return `<details open><summary style="padding-left:${8+level*10}px" class="text-xs hoverrow py-1 cursor-pointer rounded">▾ 📁 ${escapeHtml(key)}</summary>${build(children,path,level+1)}</details>`;const f=state.files.get(path),symbol=/html?$/i.test(key)?'◇':/css$/i.test(key)?'▦':/\.(js|tsx?|jsx)$/i.test(key)?'⬡':/\.(png|jpe?g|svg|gif|webp)$/i.test(key)?'▧':'▪';return `<button class="fileitem hoverrow ${state.current===path?'active':''}" style="padding-left:${10+level*10}px" data-open="${escapeHtml(path)}" title="${escapeHtml(path)}"><span class="text-sky-400">${symbol}</span><span class="label">${escapeHtml(key)}</span>${f.edited?'<span class="text-amber-300">●</span>':''}</button>`;}).join('');$('fileTree').innerHTML=entries.length?build(tree):'<p class="text-xs subtle px-2">No files.</p>';$('fileTree').querySelectorAll('[data-open]').forEach(b=>b.addEventListener('click',()=>openFile(b.dataset.open)));$('workspaceCount').textContent=entries.length+' files';}
 function setText(text){if(state.editor)state.editor.setValue(text);else $('fallbackEditor').value=text;}
 function currentText(){return state.editor?state.editor.getValue():$('fallbackEditor').value;}
@@ -145,14 +145,14 @@ function buildFramework(zip,id,files,entry){
 
 
 
-function analysisProfile(){
+function analysisProfile(target='wordpress-fse'){
  const engine=window.WebAuditIntelligence;
  if(!engine)throw Error('AI Intelligence module is unavailable');
  const files=[...state.files.values()].map(f=>({path:f.path,url:f.url,content:/\.(?:html?|css)$/i.test(f.path)?contentOf(f).slice(0,300000):''}));
- return engine.analyze({files,stack:state.stack,confidence:state.confidence,evidence:state.evidence,origin:state.origin});
+ return engine.analyze({files,stack:state.stack,confidence:state.confidence,evidence:state.evidence,origin:state.origin,target});
 }
 function aiSummary(profile,remote){
- const cards=[`Detected stack: ${profile.source.stack} (${profile.source.stackConfidence}% heuristic)`,`Public pages: ${profile.site.pageCount} | Captured style colors: ${profile.site.design.colors.join(', ')||'not detected'}`,`Native Gutenberg mapping: ${profile.conversion.editableCoreBlocks.join(', ')}`,`Requires review: ${profile.conversion.requiresReview.join(' | ')}`];
+ const target=$('aiTargetStack').value, cards=[`Detected stack: ${profile.source.stack} (${profile.source.stackConfidence}% heuristic)`,`Public pages: ${profile.site.pageCount} | Captured style colors: ${profile.site.design.colors.join(', ')||'not detected'}`,target==='html-static'?'Target: HTML/CSS safe-static — sanitized multi-page HTML and captured assets; removed JavaScript/forms require rebuilding.':`Target: WordPress FSE — native Gutenberg mapping: ${profile.conversion.editableCoreBlocks.join(', ')}`,`Requires review: ${profile.conversion.requiresReview.join(' | ')}`];
  if(remote){cards.push(`AI mode: ${remote.mode}`);cards.push(`AI summary: ${remote.enrichment.summary}`);cards.push(`AI recommendations: ${remote.enrichment.recommendations.join(' | ')}`);cards.push(`AI risks: ${remote.enrichment.risks.join(' | ')}`);if(remote.warnings?.length)cards.push(`Limitations: ${remote.warnings.join(' | ')}`);}
  else cards.push('AI mode: local deterministic analysis; no language model was contacted.');
  $('aiResult').textContent=cards.join('\n\n');
@@ -163,22 +163,38 @@ async function runIntelligence(){
  if(!state.files.size){flash('Capture a website or load the demo before analysis.',true);return;}
  saveEdit();const button=$('aiAnalyzeBtn');button.disabled=true;
  try{
-   const profile=analysisProfile();let remote=null;
+   const profile=analysisProfile($('aiTargetStack').value);let remote=null;
    const backend=$('aiEndpoint').value.trim();
    if(backend){
      const url=new URL(backend);const approved=(url.protocol==='http:'&&['localhost','127.0.0.1','[::1]'].includes(url.hostname)) || (url.origin===location.origin&&url.protocol==='https:');
      if(!approved || url.username || url.password || url.search || url.hash)throw Error('AI service must be localhost HTTP or same-origin HTTPS. Arbitrary endpoints are blocked.');
      const target=url.href.replace(/\/$/,'')+'/v1/analyze';
-     const response=await fetch(target,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({profile,allowCloud:$('aiCloudConsent').checked}),signal:AbortSignal.timeout(35000),credentials:'omit'});
+     const response=await fetch(target,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({profile,targetStack:$('aiTargetStack').value,allowCloud:$('aiCloudConsent').checked}),signal:AbortSignal.timeout(35000),credentials:'omit'});
      if(!response.ok)throw Error('AI service returned HTTP '+response.status);
      remote=await response.json();
      if(!['local-rules','local-llm','cloud-llm'].includes(remote.mode)||!remote.enrichment)throw Error('Unexpected AI service response');
    }
    aiSummary(profile,remote);
  }catch(e){
-   try{aiSummary(analysisProfile(),null);}catch{};
+   try{aiSummary(analysisProfile($('aiTargetStack').value),null);}catch{};
    flash('Local analysis available; optional AI service failed: '+e.message,true);
  }finally{button.disabled=false;}
+}
+async function downloadSafeHtml(){
+ if(!state.files.size)return;
+ saveEdit();const converter=window.WebAuditHTMLConverter;
+ if(!converter || !window.JSZip){modal('HTML conversion unavailable','The safe HTML conversion module or ZIP engine did not load.');return;}
+ const button=$('downloadSafeHtml');button.disabled=true;$('globalState').textContent='Converting HTML…';
+ try{
+   const output=converter.convert({files:preparedFiles(),entry:staticEntry(),profile:analysisProfile('html-static')});
+   const zip=new JSZip();for(const [p,bytes] of output.files)zipAdd(zip,p,bytes);
+   const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:6}});
+   saveBlob(blob,`web-audit-html-static-${new Date().toISOString().slice(0,10)}.zip`);
+   $('aiMode').textContent='local-rules';
+   $('aiResult').textContent=`HTML static conversion prepared\nPages: ${output.manifest.pages.length} | Generated files: ${output.files.size}\nWarnings: ${output.manifest.warnings.join(' | ')}\n\nNo LLM generated this code; review HTML_CONVERSION_REPORT.json in the ZIP.`;
+   $('aiResult').hidden=false;
+ }catch(e){modal('HTML conversion failed',e.message);}
+ finally{button.disabled=state.files.size===0;$('globalState').textContent='Ready';}
 }
 async function downloadFormat(id){if(!state.files.size)return;saveEdit();if(!window.JSZip){modal('ZIP support unavailable','The bundled JSZip dependency could not load. Please reload the page.');return;}const zip=new JSZip(),prepared=preparedFiles(),entry=staticEntry();$('globalState').textContent='Packaging…';try{if(id==='html'){for(const[p,v]of prepared)zipAdd(zip,p,v);if(entry!=='index.html')zipAdd(zip,'index.html',`<!doctype html><meta http-equiv="refresh" content="0;url=${escapeAttr(entry)}"><a href="${escapeAttr(entry)}">Open captured homepage</a>`);zipAdd(zip,'README.md',basicReadme('HTML Website')+'\nOffline copies can be incomplete when CORS, server APIs, cookies, or JS-rendered routes are required.\n');}else if(id==='raw'){for(const[p,f]of state.files)zipAdd(zip,p,f.binary);zipAdd(zip,'crawl-report.json',safeJson(scanReport()));zipAdd(zip,'README.md',basicReadme('Raw Evidence Archive'));}else buildFramework(zip,id,prepared,entry);const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:6}},meta=>$('globalState').textContent=`Packaging ${meta.percent.toFixed(0)}%`);saveBlob(blob,`web-audit-${id}-${new Date().toISOString().slice(0,10)}.zip`);}catch(e){modal('Export failed',e.message);}finally{$('globalState').textContent='Ready';}} 
 function saveBlob(blob,filename){const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);}
@@ -206,5 +222,6 @@ $('quickClose').addEventListener('click',()=>$('quickOpen').close());
 $('previewPage').addEventListener('change',preview);
 $('aiAnalyzeBtn').addEventListener('click',runIntelligence);
 $('downloadEditableWp').addEventListener('click',()=>downloadFormat('wordpress-native'));
+$('downloadSafeHtml').addEventListener('click',downloadSafeHtml);
 
 })();
