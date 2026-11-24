@@ -25,7 +25,7 @@ def test_demo_viewports():
             heading = page.frame_locator('#previewFrame').locator('h1')
             heading.wait_for(timeout=5000)
             assert heading.is_visible()
-            preview_color = page.frame_locator('#previewFrame').locator('body').evaluate(
+            preview_color = page.frame_locator('#previewFrame').locator('html').evaluate(
                 'el => getComputedStyle(el).backgroundColor'
             )
             assert preview_color == 'rgb(7, 23, 37)', f'demo preview CSS missing at {width}px: {preview_color}'
