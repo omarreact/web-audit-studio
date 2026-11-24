@@ -22,7 +22,14 @@ def test_demo_viewports():
             assert page.locator('#aiResult').is_visible()
             assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth + 1'), f'horizontal overflow at {width}px'
             assert page.locator('#downloadAnalysis').is_enabled()
-            page.frame_locator('#previewFrame').locator('h1').wait_for(timeout=5000)
+            heading = page.frame_locator('#previewFrame').locator('h1')
+            heading.wait_for(timeout=5000)
+            assert heading.is_visible()
+            preview_color = page.frame_locator('#previewFrame').locator('body').evaluate(
+                'el => getComputedStyle(el).backgroundColor'
+            )
+            assert preview_color == 'rgb(7, 23, 37)', f'demo preview CSS missing at {width}px: {preview_color}'
+            page.locator('#previewFrame').screenshot(path=str(OUT / f'preview-{width}.png'))
             page.screenshot(path=str(OUT / f'demo-{width}.png'), full_page=True)
             page.close()
         browser.close()
