@@ -17,10 +17,12 @@ def test_demo_viewports():
             # Test local bundled CSS and scripts in a single origin; no live website is fetched.
             page.goto('http://127.0.0.1:8000/', wait_until='domcontentloaded')
             page.locator('#demoBtn').click()
+            assert page.locator('#stats').inner_text() == '2 pages · 1/1 assets · 0 errors'
             page.locator('#aiAnalyzeBtn').click()
             assert page.locator('#aiResult').is_visible()
             assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth + 1'), f'horizontal overflow at {width}px'
             assert page.locator('#downloadAnalysis').is_enabled()
+            page.frame_locator('#previewFrame').locator('h1').wait_for(timeout=5000)
             page.screenshot(path=str(OUT / f'demo-{width}.png'), full_page=True)
             page.close()
         browser.close()
