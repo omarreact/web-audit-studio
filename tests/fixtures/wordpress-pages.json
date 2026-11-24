@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "target": "wordpress-fse",
+  "pages": [
+    {
+      "slug": "wasi-upload-fixture",
+      "title": "Upload fixture",
+      "blocks": "<!-- wp:heading {\"level\":2} --><h2 class=\"wp-block-heading\">Imported heading</h2><!-- /wp:heading --><!-- wp:paragraph --><p>Editable upload content</p><!-- /wp:paragraph -->"
+    }
+  ]
+}

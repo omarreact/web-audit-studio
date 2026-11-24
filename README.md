@@ -28,7 +28,7 @@ python -m http.server 8000
 # then open http://localhost:8000
 ```
 
-For a totally portable version with embedded styling, code, and JSZip, open `Web-Audit-Studio-Full-Stack-Migrator.html` from the separate delivery. Monaco and Tailwind are loaded by CDN when online; a textarea and bundled CSS provide an offline fallback.
+For a portable version with embedded styling, application code, and JSZip, open `single-file.html`. Rebuild it after editing the application with `node tools/build-single-file.cjs`. Monaco and Tailwind are loaded by CDN when online; a textarea and bundled CSS provide an offline fallback.
 
 Use **Load demo** first to test the editor, preview, downloads, and reports without requesting a live website. **Import ZIP** can ingest an exported or manually obtained static website, which is useful when browser fetches are blocked by CORS.
 
@@ -48,6 +48,10 @@ Use **Load demo** first to test the editor, preview, downloads, and reports with
 ## Export formats and fidelity
 
 **HTML:** fetched file bytes with rewritten references to captured same-origin assets and pages. A redirect `index.html` is generated if the scanned entry page is not `/`.
+
+**HTML safe-static (Hybrid AI panel):** separate experimental target adapter (`assets/html-converter.js`) produces multi-page HTML, captured CSS/media, a structured conversion report and warnings. Executable scripts, event handlers, embedded frames and form submissions are deliberately removed/disabled. Existing fidelity-oriented HTML ZIP is unchanged. Supports offline local deterministic conversion; optional Ollama or consented cloud AI only reviews a bounded metadata profile and **never** writes or executes conversion code. No original backend or pixel-parity guarantee.
+
+The safe-static HTML and native Next.js conversions also remove prefilled input, textarea and select values, hidden inputs, and password controls. The **Raw Evidence** and legacy fidelity-oriented HTML exports preserve captured source bytes; inspect them before sharing, especially after importing a ZIP containing private data.
 
 **Raw Evidence:** actual captured file contents and crawl report JSON. Uncaptured files are never fabricated.
 
@@ -73,8 +77,16 @@ Use **Load demo** first to test the editor, preview, downloads, and reports with
 
 ```bash
 node --check assets/app.js
+node --check assets/html-converter.js
 node tests/core.test.cjs
+python -m pytest -q tests/test_html_target_service.py tests/test_html_converter_browser.py
 python tests/e2e.py    # optional: requires Playwright, Chromium and local loopback access
 ```
 
 The automated core test exercises safe paths, linked URL rewriting, import discovery and ZIP file structure for six framework exports. Generated WordPress PHP passed `php -l`. Browser test automation was attempted but the available Chromium environment blocks *all* document navigation with `ERR_BLOCKED_BY_ADMINISTRATOR`; accordingly visual and end-to-end validation must still be performed in an unrestricted browser. See `QA-RESULTS.md`.
+
+## Experimental hybrid AI & editable WordPress conversion
+
+See [`AI-ROADMAP.md`](AI-ROADMAP.md) for architecture, fidelity and security limits. In the UI select **Load demo** or scan a permitted public website, then select **Analyze captured site**. The default is *local deterministic rules*, not LLM-powered AI. **Editable WordPress FSE ZIP (experimental)** adds native Gutenberg blocks for common semantic elements and includes `web-audit-analysis.json`, `web-audit-pages.json` and conversion warnings. Existing eight export modes are unmodified.
+
+Optional actual local AI uses the Python service described in [`services/analyzer/README.md`](services/analyzer/README.md), and requires an installed local Ollama model. Cloud AI is never automatic, requires a server-held API key and explicit per-action consent. The WordPress page importer is an optional **separately installed** plugin under [`wordpress/web-audit-importer/`](wordpress/web-audit-importer/); it creates draft pages only and must be tested in staging.

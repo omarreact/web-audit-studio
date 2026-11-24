@@ -4,8 +4,11 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
-  core-tests:
+  javascript-and-php:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -13,6 +16,76 @@ jobs:
         with:
           node-version: '22'
       - name: Check JavaScript syntax
-        run: node --check assets/app.js
-      - name: Run core tests
+        run: |
+          node --check assets/app.js
+          node --check assets/ai-intelligence.js
+          node --check assets/html-converter.js
+          node --check assets/next-converter.js
+          node tools/build-single-file.cjs --check
+      - name: Run existing core tests
         run: node tests/core.test.cjs
+      - name: Validate WordPress plugin PHP syntax
+        run: php -l wordpress/web-audit-importer/web-audit-importer.php
+
+  hybrid-service-and-browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: services/analyzer/requirements.txt
+      - name: Install test dependencies
+        run: |
+          python -m pip install -r services/analyzer/requirements.txt pytest playwright
+          python -m playwright install --with-deps chromium
+      - name: Run bounded AI service and Chromium export tests
+        run: python -m pytest -q tests/test_ai_service.py tests/test_html_target_service.py tests/test_intelligence_browser.py tests/test_html_converter_browser.py tests/test_next_target_service.py tests/test_next_converter_browser.py
+      - name: Capture demo responsive evidence
+        run: |
+          python -m http.server 8000 --bind 127.0.0.1 >/tmp/web-audit-http.log 2>&1 &
+          python -m pytest -q tests/visual_smoke.py
+      - name: Upload viewport screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-audit-demo-viewports
+          path: visual-evidence/*.png
+          if-no-files-found: ignore
+
+  generated-next-static-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Playwright Chromium
+        run: |
+          python -m pip install playwright
+          python -m playwright install --with-deps chromium
+      - name: Generate test fixture from converter
+        run: |
+          python tests/create_next_fixture.py --output /tmp/next-fixture.zip
+          mkdir -p /tmp/next-fixture && cd /tmp/next-fixture && unzip -q ../next-fixture.zip
+      - name: Install generated Next.js project dependencies
+        working-directory: /tmp/next-fixture
+        run: npm install --no-audit --no-fund
+      - name: Typecheck and build generated Next.js export
+        working-directory: /tmp/next-fixture
+        run: |
+          npm run typecheck
+          npm run build
+          test -f out/index.html
+          test -f out/about/index.html
+
+  wordpress-staging:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install importer and validate draft blocks in disposable WordPress
+        run: bash tests/wordpress_staging.sh
