@@ -30,6 +30,10 @@ def test_demo_viewports():
             )
             assert preview_color == 'rgb(7, 23, 37)', f'demo preview CSS missing at {width}px: {preview_color}'
             page.locator('#previewFrame').screenshot(path=str(OUT / f'preview-{width}.png'))
+            if width == 390:
+                inspector = page.locator('.inspector').bounding_box()
+                frame = page.locator('#previewFrame').bounding_box()
+                assert inspector and frame and inspector['height'] > frame['height'], 'mobile inspector clips the preview'
             page.screenshot(path=str(OUT / f'demo-{width}.png'), full_page=True)
             page.close()
         browser.close()
