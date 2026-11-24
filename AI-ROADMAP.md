@@ -54,3 +54,11 @@ php -l wordpress/web-audit-importer/web-audit-importer.php
 - Hybrid Python API accepts the strict `targetStack` enum (`html-static`, `wordpress-fse`); Ollama first, cloud only with per-action consent and server-side credentials; local rules otherwise.
 - HTML conversion is not a pixel-perfect visual clone or source recovery, and CSS can still reference uncaptured resources.
 - The earlier WordPress PR is a prerequisite for this stacked feature branch until rebased; do not merge independently.
+
+## Phase 2A structural intelligence (review branch)
+
+- The analysis profile now includes `site.intelligence` schema version 1. It estimates header, navigation, footer, hero, card groups, CTA, image/text, and form patterns from bounded, already captured HTML. Each candidate reports page paths, structural evidence, heuristic confidence, and whether it repeats across pages. These are not the original framework components.
+- Conservative CSS tokens record observed font families, sizes, spacing, colors, max widths, and media-query width candidates with source file provenance. Unknown categories stay explicit. The scanner does not compute styles, resolve imports, contact remote sources, or execute source JavaScript.
+- The existing panel gives a compact count. **Analysis JSON** downloads the bounded profile for review. Source form values, scripts, and free-form page text are excluded from the component inventory and tokens. The broader existing profile still contains public page headings and text; review it before sharing.
+- The portable `single-file.html` is regenerated from the same source modules by `node tools/build-single-file.cjs`; CI checks that it stays synchronized.
+- Real-source responsive fidelity, WordPress staging import, model connectivity, and interactive application reconstruction remain separate release gates.

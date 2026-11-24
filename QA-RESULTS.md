@@ -10,3 +10,7 @@
 - Production deployment: NOT REQUESTED / NOT DONE.
 
 CI workflow runs the deterministic core assertions on GitHub Actions; a passing workflow is not a substitute for desktop/mobile browser E2E.
+
+## Feature branch validation
+
+The three stacked draft PRs add Chromium export tests, Python API tests, and a generated Next.js fixture typecheck/build in CI. Phase 2A adds multi-page component/token fixtures, oversized input bounds, and Analysis JSON download coverage. Run `node tools/build-single-file.cjs --check` to verify the portable build is current. These tests establish deterministic fixture behavior; a real WordPress staging import and source-to-output visual review remain required before release.

@@ -21,6 +21,7 @@ jobs:
           node --check assets/ai-intelligence.js
           node --check assets/html-converter.js
           node --check assets/next-converter.js
+          node tools/build-single-file.cjs --check
       - name: Run existing core tests
         run: node tests/core.test.cjs
       - name: Validate WordPress plugin PHP syntax

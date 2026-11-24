@@ -1,7 +1,25 @@
 /** Site profile and target contracts. HTML safe-static and WordPress FSE are experimental. */
 export type SourceProvenance = 'public-capture' | 'authorized-repository' | 'inferred' | 'generated';
 export type ConversionStatus = 'experimental' | 'review-required' | 'validated';
-export type ConversionTarget = 'html-static' | 'wordpress-fse';
+export type ConversionTarget = 'html-static' | 'wordpress-fse' | 'nextjs-static';
+export interface StructuralCandidate {
+  kind: 'header' | 'navigation' | 'footer' | 'hero' | 'card-group' | 'cta' | 'image-text' | 'form';
+  suggestedName: string;
+  confidence: 'low' | 'medium';
+  repeatedAcrossPages: boolean;
+  pagePaths: string[];
+  occurrences: number;
+  evidence: string[];
+}
+export interface ObservedToken { value: string; sourcePath: string; provenance: 'captured-css' }
+export interface StructureReport {
+  schemaVersion: 1;
+  method: 'bounded-structural-heuristics';
+  components: StructuralCandidate[];
+  tokens: Record<'fontFamilies' | 'fontSizes' | 'spacing' | 'colors' | 'containerWidths' | 'breakpoints', ObservedToken[]>;
+  unknown: string[];
+  limitations: string;
+}
 export interface SitePage {
   path: string;
   url: string | null;
@@ -21,6 +39,7 @@ export interface SiteProfile {
     assetCount: number;
     components: {headings: number; images: number; forms: number; buttons: number};
     design: {colors: string[]; fontFamilies: string[]};
+    intelligence?: StructureReport;
   };
   pages: SitePage[];
   conversion: {target: ConversionTarget; editableCoreBlocks: string[]; fallback: string; requiresReview: string[]; guaranteedSourceParity: false};

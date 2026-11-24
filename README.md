@@ -28,7 +28,7 @@ python -m http.server 8000
 # then open http://localhost:8000
 ```
 
-For a totally portable version with embedded styling, code, and JSZip, open `Web-Audit-Studio-Full-Stack-Migrator.html` from the separate delivery. Monaco and Tailwind are loaded by CDN when online; a textarea and bundled CSS provide an offline fallback.
+For a portable version with embedded styling, application code, and JSZip, open `single-file.html`. Rebuild it after editing the application with `node tools/build-single-file.cjs`. Monaco and Tailwind are loaded by CDN when online; a textarea and bundled CSS provide an offline fallback.
 
 Use **Load demo** first to test the editor, preview, downloads, and reports without requesting a live website. **Import ZIP** can ingest an exported or manually obtained static website, which is useful when browser fetches are blocked by CORS.
 

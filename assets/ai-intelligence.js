@@ -28,8 +28,71 @@
     const values = [...new Set(candidates.map(s=>s.toLowerCase()))];
     return values.filter(v=>/^#[0-9a-f]{3,6}$/.test(v)).slice(0,12);
   }
+  // Structural estimates only. Never include captured text, field values, IDs or URLs.
+  function inspectStructure(htmlFiles, cssFiles) {
+    const kinds = ['header','navigation','footer','hero','card-group','cta','image-text','form'];
+    const found = new Map();
+    const nodeKind = n => {
+      const tag=n.tagName.toLowerCase();
+      const hint=(n.getAttribute('class')||'').slice(0,200);
+      if(tag==='header')return 'header';
+      if(tag==='nav')return 'navigation';
+      if(tag==='footer')return 'footer';
+      if(tag==='form')return 'form';
+      if(/(?:^|[\s_-])hero(?:$|[\s_-])/.test(hint)||((tag==='section'||tag==='main')&&n.querySelector('h1')))return 'hero';
+      if((tag==='section'||tag==='div')&&n.children.length>=2&&n.children.length<=30){
+        const children=[...n.children].filter(x=>['ARTICLE','LI','DIV'].includes(x.tagName));
+        if(children.length>=2&&children.length<=20&&children.some(x=>x.querySelector('h2,h3,img'))&&children.filter(x=>x.tagName===children[0].tagName).length>=2)return 'card-group';
+      }
+      if((tag==='section'||tag==='div')&&n.querySelector('img')&&n.querySelector('h2,h3,p')&&n.children.length<12)return 'image-text';
+      if((tag==='section'||tag==='div')&&/(?:^|[\s_-])cta(?:$|[\s_-])/.test(hint)&&n.querySelector('a,button'))return 'cta';
+      return '';
+    };
+    for(const file of htmlFiles){
+      const doc=parseHTML(file.content);if(!doc)continue;
+      let count=0;
+      for(const n of doc.body.querySelectorAll('header,nav,footer,form,main,section,div')){
+        if(++count>2500)break;
+        const kind=nodeKind(n);if(!kind)continue;
+        const shape=[kind,n.tagName.toLowerCase(),[...n.children].slice(0,12).map(x=>x.tagName.toLowerCase()).join(','),
+          ['h1','h2','h3','img','a','button'].map(s=>Math.min(9,n.querySelectorAll(s).length)).join(':')].join('|');
+        const item=found.get(shape)||{kind,signature:shape,paths:new Set(),occurrences:0,evidence:[]};
+        item.paths.add(String(file.path).slice(0,512));item.occurrences++;
+        if(item.evidence.length<3)item.evidence.push(`Observed <${n.tagName.toLowerCase()}> structure in ${String(file.path).slice(0,512)}`);
+        found.set(shape,item);
+      }
+    }
+    const components=[...found.values()].sort((a,b)=>b.paths.size-a.paths.size||b.occurrences-a.occurrences).slice(0,40).map(x=>({
+      kind:x.kind,suggestedName:x.kind.split('-').map(s=>s[0].toUpperCase()+s.slice(1)).join('')+'Candidate',
+      confidence:x.paths.size>1?'medium':'low',repeatedAcrossPages:x.paths.size>1,
+      pagePaths:[...x.paths].slice(0,20),occurrences:x.occurrences,evidence:x.evidence
+    }));
+    const categories={fontFamilies:[],fontSizes:[],spacing:[],colors:[],containerWidths:[],breakpoints:[]};
+    const unique=Object.fromEntries(Object.keys(categories).map(k=>[k,new Set()]));
+    const rules={fontFamilies:/\bfont-family\s*:\s*([^;{}]+)/gi,fontSizes:/\bfont-size\s*:\s*([^;{}]+)/gi,
+      spacing:/\b(?:gap|padding|margin)(?:-(?:top|right|bottom|left|inline|block))?\s*:\s*([^;{}]+)/gi,
+      colors:/\b(?:color|background(?:-color)?|border-color)\s*:\s*([^;{}]+)/gi,
+      containerWidths:/\bmax-width\s*:\s*([^;{}]+)/gi,breakpoints:/@media\s*\([^)]*?(?:min|max)-width\s*:\s*([^)]+)\)/gi};
+    for(const file of cssFiles.slice(0,50)){
+      const css=String(file.content||'').slice(0,MAX_FILE_CHARS).replace(/\/\*[\s\S]*?\*\//g,'');
+      for(const [kind,re] of Object.entries(rules)){
+        re.lastIndex=0;let m,tries=0;
+        while((m=re.exec(css))&&++tries<=500&&categories[kind].length<20){
+          const value=limit(m[1],100);
+          if(!value||/[<>]|url\s*\(|expression\s*\(|@import/i.test(value)||!/[a-z\d#]/i.test(value))continue;
+          if(kind==='colors'&&!/^(?:#[\da-f]{3,8}|(?:rgb|hsl)a?\([\d%.,\s]+\)|[a-z-]+|var\(--[\w-]+\))$/i.test(value))continue;
+          if(['fontSizes','spacing','containerWidths','breakpoints'].includes(kind)&&!/^(?:-?[\d.]+(?:px|rem|em|%|vw|vh)|clamp\([\w\d.,%\s-]+\)|var\(--[\w-]+\))$/i.test(value))continue;
+          const key=value.toLowerCase();if(unique[kind].has(key))continue;
+          unique[kind].add(key);categories[kind].push({value,sourcePath:String(file.path).slice(0,512),provenance:'captured-css'});
+        }
+      }
+    }
+    return {schemaVersion:1,method:'bounded-structural-heuristics',components,
+      tokens:categories,unknown:Object.keys(categories).filter(k=>!categories[k].length),
+      limitations:'Candidates are not original source components. Tokens are observed CSS values, not computed styles or pixel parity.'};
+  }
   function analyze(input) {
-    const target = input.target === 'html-static' ? 'html-static' : 'wordpress-fse';
+    const target = ['html-static','nextjs-static','wordpress-fse'].includes(input.target) ? input.target : 'wordpress-fse';
     const files = (Array.isArray(input.files) ? input.files : []).slice(0,500);
     const html = files.filter(f => /\.html?$/i.test(f.path || '')).slice(0,MAX_PAGES);
     const css = files.filter(f=>/\.css$/i.test(f.path||'')).map(f=>String(f.content||'').slice(0,MAX_FILE_CHARS)).join('\n').slice(0,MAX_FILE_CHARS);
@@ -54,7 +117,7 @@
     if(!pages.length)needsReview.push('No captured HTML pages; full conversion cannot be inferred.');
     needsReview.push('Public pages cannot reveal private APIs, databases, authentication or unpublished source.');
     const components={headings:pages.reduce((n,p)=>n+p.headings.length,0),images:pages.reduce((n,p)=>n+p.images.length,0),forms:pages.reduce((n,p)=>n+p.forms.length,0),buttons:pages.reduce((n,p)=>n+p.buttons.length,0)};
-    return {schemaVersion:1,engineVersion:VERSION,mode:'local-rules',generatedAt:new Date().toISOString(),source:{origin:limit(input.origin,500),stack:limit(input.stack||'Unknown',80),stackConfidence:Number(input.confidence)||0,evidence},site:{pageCount:pages.length,assetCount:files.length-pages.length,components,design:{colors:colors(css),fontFamilies:customFonts}},pages,conversion:{target,editableCoreBlocks:target==='wordpress-fse'?['heading','paragraph','image','list','buttons','group']:[],fallback:target==='html-static'?'Original HTML/CSS is sanitized; dynamic behavior is not executed.':'core/html for unsupported/complex elements',requiresReview:needsReview,guaranteedSourceParity:false},llm:null};
+    return {schemaVersion:1,engineVersion:VERSION,mode:'local-rules',generatedAt:new Date().toISOString(),source:{origin:limit(input.origin,500),stack:limit(input.stack||'Unknown',80),stackConfidence:Number(input.confidence)||0,evidence},site:{pageCount:pages.length,assetCount:files.length-pages.length,components,design:{colors:colors(css),fontFamilies:customFonts},intelligence:inspectStructure(html,files.filter(f=>/\.css$/i.test(f.path||'')))},pages,conversion:{target,editableCoreBlocks:target==='wordpress-fse'?['heading','paragraph','image','list','buttons','group']:[],fallback:target==='html-static'?'Original HTML/CSS is sanitized; dynamic behavior is not executed.':target==='nextjs-static'?'Captured dynamic behavior and backend require manual Next.js implementation.':'core/html for unsupported/complex elements',requiresReview:needsReview,guaranteedSourceParity:false},llm:null};
   }
   function inline(node) {
     if (!node) return '';

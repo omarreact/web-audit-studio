@@ -38,6 +38,42 @@ def test_native_blocks_and_site_intelligence():
     browser.close()
 
 
+def test_bounded_component_candidates_and_css_provenance():
+  with sync_playwright() as p:
+    browser=p.chromium.launch(headless=True,args=['--no-sandbox'],**LAUNCH)
+    page=browser.new_page()
+    page.set_content('<!doctype html><html><body>fixture</body></html>')
+    page.add_script_tag(content=(ROOT/'assets/ai-intelligence.js').read_text())
+    report=page.evaluate('''() => {
+      const header='<header><nav><a href="/">Home</a></nav></header>';
+      const cards='<section><article><h2>A</h2></article><article><h2>B</h2></article></section>';
+      const make=(title)=>`<!doctype html><body>${header}<main><section class="hero"><h1>${title}</h1></section>${cards}<form><input name="password" value="SECRET-PERSONAL-DATA"></form></main><footer>End</footer><script>SECRET-SCRIPT-DATA</script></body>`;
+      const files=[{path:'index.html',content:make('One')},{path:'about.html',content:make('Two')},
+        {path:'assets/site.css',content:'/* secret: PRIVATE-COMMENT */ body{font-family:Inter,sans-serif;font-size:18px;padding:2rem;color:#123456;max-width:1200px}@media(max-width:700px){body{font-size:16px}}'}];
+      return window.WebAuditIntelligence.analyze({files,target:'nextjs-static'});
+    }''')
+    intel=report['site']['intelligence']
+    assert intel['schemaVersion']==1
+    assert report['conversion']['target']=='nextjs-static'
+    repeated={c['kind'] for c in intel['components'] if c['repeatedAcrossPages']}
+    assert {'header','navigation','footer','hero','card-group','form'} <= repeated
+    assert any(t['value']=='700px' and t['sourcePath']=='assets/site.css' for t in intel['tokens']['breakpoints'])
+    assert any(t['value']=='#123456' for t in intel['tokens']['colors'])
+    assert not intel['unknown'] or isinstance(intel['unknown'],list)
+    serialized=str(intel)
+    assert 'SECRET-PERSONAL-DATA' not in serialized
+    assert 'SECRET-SCRIPT-DATA' not in serialized
+    assert 'PRIVATE-COMMENT' not in serialized
+    assert len(intel['components'])<=40
+    oversized=page.evaluate('''() => window.WebAuditIntelligence.analyze({files:[
+      {path:'index.html',content:'<main><section class="hero"><h1>Large</h1></section></main>'+'<div>padding</div>'.repeat(200000)},
+      {path:'huge.css',content:'body{color:#abcdef;gap:2rem}'+'a{font-size:12px}'.repeat(60000)}
+    ]}).site.intelligence''')
+    assert len(oversized['components'])<=40
+    assert all(len(values)<=20 for values in oversized['tokens'].values())
+    browser.close()
+
+
 def test_app_demo_and_native_zip():
   with sync_playwright() as p:
     browser=p.chromium.launch(headless=True,args=['--no-sandbox'],**LAUNCH)
@@ -70,6 +106,14 @@ def test_app_demo_and_native_zip():
     page.locator('#aiAnalyzeBtn').click()
     assert 'Local rules' not in page.locator('#aiResult').inner_text()  # explicitly labelled local-rules
     assert 'local deterministic analysis' in page.locator('#aiResult').inner_text()
+    assert 'Component candidates:' in page.locator('#aiResult').inner_text()
+    with page.expect_download(timeout=20000) as analysis_download:
+      page.locator('#downloadAnalysis').click()
+    import json
+    with __import__('tempfile').TemporaryDirectory() as tmp:
+      dest=Path(tmp)/'analysis.json'
+      analysis_download.value.save_as(dest)
+      assert json.loads(dest.read_text())['site']['intelligence']['schemaVersion']==1
     with page.expect_download(timeout=20000) as download:
       page.locator('#downloadEditableWp').click()
     file=download.value
