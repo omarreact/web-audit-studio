@@ -29,7 +29,7 @@ wp() {
     -e WORDPRESS_DB_HOST=wasi-mariadb -e WORDPRESS_DB_USER=wordpress \
     -e WORDPRESS_DB_PASSWORD=local-test-password -e WORDPRESS_DB_NAME=wordpress \
     -v "$PWD/tests/wordpress_integration.php:/tmp/wordpress_integration.php:ro" \
-    wordpress:cli "$@"
+    wordpress:cli wp "$@"
 }
 wp core install --url=http://wasi-wordpress --title='Web Audit CI' \
   --admin_user=admin --admin_password=local-test-password --admin_email=admin@example.test
