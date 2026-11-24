@@ -26,6 +26,8 @@ done
 docker exec wasi-wordpress test -f /var/www/html/wp-config.php
 wp() {
   docker run --rm --network wasi-ci --volumes-from wasi-wordpress --user 33:33 \
+    -e WORDPRESS_DB_HOST=wasi-mariadb -e WORDPRESS_DB_USER=wordpress \
+    -e WORDPRESS_DB_PASSWORD=local-test-password -e WORDPRESS_DB_NAME=wordpress \
     -v "$PWD/tests/wordpress_integration.php:/tmp/wordpress_integration.php:ro" \
     wordpress:cli "$@"
 }
