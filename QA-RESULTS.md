@@ -14,3 +14,5 @@ CI workflow runs the deterministic core assertions on GitHub Actions; a passing 
 ## Feature branch validation
 
 The three stacked draft PRs add Chromium export tests, Python API tests, and a generated Next.js fixture typecheck/build in CI. Phase 2A adds multi-page component/token fixtures, oversized input bounds, and Analysis JSON download coverage. Run `node tools/build-single-file.cjs --check` to verify the portable build is current. These tests establish deterministic fixture behavior; a real WordPress staging import and source-to-output visual review remain required before release.
+
+CI now captures the local demo at 390, 768, and 1440 pixels, checks horizontal overflow and the preview heading, and uploads screenshots for human review. A disposable WordPress container activates the importer, parses native blocks, verifies executable markup is removed, and persists a draft page. This does not exercise an actual browser upload of a converted real site or establish source/target visual parity.

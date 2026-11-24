@@ -82,3 +82,10 @@ jobs:
           npm run build
           test -f out/index.html
           test -f out/about/index.html
+
+  wordpress-staging:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install importer and validate draft blocks in disposable WordPress
+        run: bash tests/wordpress_staging.sh
