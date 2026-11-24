@@ -35,6 +35,22 @@ def test_safe_html_adapter():
         assert result['report']['adapter']=='html-static' and len(result['report']['pages'])==2
         browser.close()
 
+def test_safe_html_redacts_prefilled_controls():
+    with sync_playwright() as p:
+        browser=launch(p); page=browser.new_page()
+        page.set_content('<html><body>fixture</body></html>')
+        page.add_script_tag(content=(ROOT/'assets/html-converter.js').read_text())
+        output=page.evaluate('''() => {
+          const html='<main><form><input type="hidden" value="private-csrf-token"><input type="password" value="private-password"><input value="private-name" data-token="private-data"><textarea>private-note</textarea><select><option value="private-option" selected>Public label</option></select></form></main>';
+          const result=WebAuditHTMLConverter.convert({files:new Map([['index.html',html]])});
+          return {html:new TextDecoder().decode(result.files.get('index.html')),report:result.manifest};
+        }''')
+        for secret in ('private-csrf-token','private-password','private-name','private-data','private-note','private-option'):
+            assert secret not in output['html']
+        assert 'Public label' in output['html']
+        assert output['report']['pages'][0]['removed']['redactedControls'] >= 5
+        browser.close()
+
 def test_app_html_export_with_legacy_options():
     import re
     with sync_playwright() as p:

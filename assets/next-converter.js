@@ -102,6 +102,10 @@
       if(node.nodeType===3){const value=node.nodeValue||'';return value.length>20000?value.slice(0,20000):value;}
       if(node.nodeType!==1)return null;
       const orig=node.tagName.toLowerCase();
+      if(orig==='input'&&/^(?:hidden|password)$/i.test(node.getAttribute('type')||'')){
+        pageWarnings.add('Hidden and password form controls were omitted to avoid exporting prefilled secrets.');
+        return null;
+      }
       if(orig==='form'){
         pageWarnings.add('Forms are rendered as disabled visual placeholders; submission needs an authorized implementation.');
       }else if(OMIT.has(orig)||!ALLOWED.has(orig)){
@@ -116,7 +120,7 @@
         if(name.startsWith('on')||name==='is'||name==='srcdoc'||name==='contenteditable'||name==='formaction'||name==='dangerouslysetinnerhtml')continue;
         if(name==='class')props.className=val.slice(0,500);else if(name==='for')props.htmlFor=val.slice(0,100);
         else if(name==='style'){const style=inlineStyle(node);if(style)props.style=style;}
-        else if(['id','title','alt','lang','dir','role','placeholder','name','value','download','datetime','cite','abbr','scope','colspan','rowspan','start','width','height','loading','decoding'].includes(name) || /^aria-[a-z-]+$/.test(name)||/^data-[a-z0-9-_]+$/.test(name)){
+        else if(['id','title','alt','lang','dir','role','placeholder','name','download','datetime','cite','abbr','scope','colspan','rowspan','start','width','height','loading','decoding'].includes(name) || /^aria-[a-z-]+$/.test(name)||(!INTERACTIVE.has(orig)&&orig!=='option'&&/^data-[a-z0-9-_]+$/.test(name))){
           if(['width','height','colspan','rowspan','start'].includes(name)){
             const n=Number.parseInt(val,10);if(Number.isInteger(n)&&n>=0&&n<=10000)props[{colspan:'colSpan',rowspan:'rowSpan'}[name]||name]=n;
           }else props[{datetime:'dateTime',abbr:'abbr'}[name]||name]=val.slice(0,500);
@@ -135,7 +139,8 @@
       if(tag==='a'&&!props.href)tag==='a'&&(props.role='text');
       if(tag==='img'&&!props.src)return null;
       const children=[];
-      for(const child of [...node.childNodes]){
+      if(orig==='textarea')pageWarnings.add('Prefilled textarea content was omitted from the static export.');
+      for(const child of orig==='textarea'?[]:[...node.childNodes]){
         const out=serializeNode(child,pagePath,pageWarnings,depth+1);
         if(out!==null)children.push(out);
       }

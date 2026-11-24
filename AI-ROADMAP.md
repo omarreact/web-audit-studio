@@ -2,7 +2,7 @@
 
 ## Status
 
-**Experimental feature branch, not ready for production.** The existing eight export options remain unchanged. The AI panel now also exposes a separate HTML safe-static ZIP; the existing HTML and WordPress ZIP options remain unchanged. Local rules are not labelled as AI inference; a real LLM runs only through an explicitly configured Python service.
+**Experimental converters; generated sites require review before publication.** The existing eight export options remain unchanged. The AI panel also exposes separate HTML safe-static, native Next.js, and editable WordPress FSE ZIPs. Local rules are not labelled as AI inference; a real LLM runs only through an explicitly configured Python service.
 
 ## Architecture
 

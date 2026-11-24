@@ -79,6 +79,24 @@ def test_next_converter_rejects_bad_paths_and_route_collisions():
         browser.close()
 
 
+def test_next_converter_redacts_prefilled_controls():
+    with sync_playwright() as pw:
+        browser=pw.chromium.launch(headless=True,args=['--no-sandbox'],**LAUNCH)
+        page=browser.new_page()
+        page.set_content('<html><body>fixture</body></html>')
+        page.add_script_tag(content=(ROOT/'assets/next-converter.js').read_text())
+        result=page.evaluate('''() => {
+          const html='<main><form><input type="hidden" value="private-csrf-token"><input type="password" value="private-password"><input value="private-name" data-token="private-data"><textarea>private-note</textarea><select><option value="private-option" selected>Public label</option></select></form></main>';
+          const output=WebAuditNextConverter.convert({files:new Map([['index.html',html]])});
+          return {data:output.files.get('data/pages.json'),warnings:output.manifest.warnings};
+        }''')
+        for secret in ('private-csrf-token','private-password','private-name','private-data','private-note','private-option'):
+            assert secret not in result['data']
+        assert 'Public label' in result['data']
+        assert any('omitted' in warning for warning in result['warnings'])
+        browser.close()
+
+
 def test_next_html_wordpress_exports_remain_independent():
     with sync_playwright() as pw:
         browser=pw.chromium.launch(headless=True,args=['--no-sandbox'],**LAUNCH)

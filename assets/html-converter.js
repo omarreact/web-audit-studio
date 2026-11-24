@@ -10,7 +10,7 @@ function decode(v){return typeof v==='string'?v:decoder.decode(v);}
 function page(path,html){
  if(typeof DOMParser==='undefined')throw Error('DOMParser is required');
  const d=new DOMParser().parseFromString(html,'text/html');
- const removed={scripts:0,embeds:0,executableAttributes:0,unsafeUrls:0,disabledForms:0,disabledButtons:0};
+ const removed={scripts:0,embeds:0,executableAttributes:0,unsafeUrls:0,disabledForms:0,disabledButtons:0,redactedControls:0};
  const warnings=[];
  for(const x of [...d.querySelectorAll('script')]){removed.scripts++;x.remove();}
  for(const x of [...d.querySelectorAll('iframe,object,embed,applet,template')]){removed.embeds++;x.remove();}
@@ -19,6 +19,16 @@ function page(path,html){
    const p=d.createElement('div');p.className=x.className||'';p.setAttribute('data-web-audit-static-form','');
    const n=d.createElement('p');n.setAttribute('role','note');n.textContent='Form preview only — submission is disabled in this static HTML conversion.';p.appendChild(n);
    while(x.firstChild)p.appendChild(x.firstChild);x.replaceWith(p);removed.disabledForms++;
+ }
+ // Captured markup can contain prefilled credentials, tokens or personal data.
+ // A disabled control still serializes its value into the exported HTML.
+ for(const x of [...d.querySelectorAll('input,textarea,select,option,button')]){
+   if(x.matches('input[type="hidden"],input[type="password"]')){x.remove();removed.redactedControls++;continue;}
+   if(x.matches('textarea'))x.textContent='';
+   for(const a of [...x.attributes]){
+     if(['value','checked','selected'].includes(a.name.toLowerCase())||a.name.toLowerCase().startsWith('data-'))x.removeAttribute(a.name);
+   }
+   removed.redactedControls++;
  }
  for(const x of [...d.querySelectorAll('*')]){
    for(const a of [...x.attributes]){
@@ -41,6 +51,7 @@ function page(path,html){
  if(removed.embeds)warnings.push('Embedded objects and frames removed.');
  if(removed.disabledForms)warnings.push('Captured form submissions disabled.');
  if(removed.disabledButtons)warnings.push('Captured buttons disabled; script events not reimplemented.');
+ if(removed.redactedControls)warnings.push('Prefilled form control values and state removed from static export.');
  if(removed.executableAttributes||removed.unsafeUrls)warnings.push('Executable attributes or unsafe URLs removed.');
  if(!d.querySelector('main'))warnings.push('No main landmark detected; original structure preserved.');
  if(!d.head.querySelector('meta[name="description"]'))warnings.push('No SEO description captured; none invented.');

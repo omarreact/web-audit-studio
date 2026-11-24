@@ -51,6 +51,8 @@ Use **Load demo** first to test the editor, preview, downloads, and reports with
 
 **HTML safe-static (Hybrid AI panel):** separate experimental target adapter (`assets/html-converter.js`) produces multi-page HTML, captured CSS/media, a structured conversion report and warnings. Executable scripts, event handlers, embedded frames and form submissions are deliberately removed/disabled. Existing fidelity-oriented HTML ZIP is unchanged. Supports offline local deterministic conversion; optional Ollama or consented cloud AI only reviews a bounded metadata profile and **never** writes or executes conversion code. No original backend or pixel-parity guarantee.
 
+The safe-static HTML and native Next.js conversions also remove prefilled input, textarea and select values, hidden inputs, and password controls. The **Raw Evidence** and legacy fidelity-oriented HTML exports preserve captured source bytes; inspect them before sharing, especially after importing a ZIP containing private data.
+
 **Raw Evidence:** actual captured file contents and crawl report JSON. Uncaptured files are never fabricated.
 
 **WordPress FSE:** block theme metadata (`style.css`, `theme.json`), `templates/`, `parts/`, `functions.php`, public assets, plus captured HTML mapped into `wp:html` blocks. Theme assets are enqueued from `functions.php`. Other page template slugs need corresponding pages in WordPress. This is **not** recovered PHP/theme/plugin source.
@@ -83,7 +85,7 @@ python tests/e2e.py    # optional: requires Playwright, Chromium and local loopb
 
 The automated core test exercises safe paths, linked URL rewriting, import discovery and ZIP file structure for six framework exports. Generated WordPress PHP passed `php -l`. Browser test automation was attempted but the available Chromium environment blocks *all* document navigation with `ERR_BLOCKED_BY_ADMINISTRATOR`; accordingly visual and end-to-end validation must still be performed in an unrestricted browser. See `QA-RESULTS.md`.
 
-## Experimental hybrid AI & editable WordPress conversion (feature branch)
+## Experimental hybrid AI & editable WordPress conversion
 
 See [`AI-ROADMAP.md`](AI-ROADMAP.md) for architecture, fidelity and security limits. In the UI select **Load demo** or scan a permitted public website, then select **Analyze captured site**. The default is *local deterministic rules*, not LLM-powered AI. **Editable WordPress FSE ZIP (experimental)** adds native Gutenberg blocks for common semantic elements and includes `web-audit-analysis.json`, `web-audit-pages.json` and conversion warnings. Existing eight export modes are unmodified.
 
