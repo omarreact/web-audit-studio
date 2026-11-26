@@ -1,6 +1,7 @@
 """Bounded single-request public website archive. Not an unrestricted resource proxy."""
 from collections import deque
 import hashlib
+import os
 import io
 import posixpath
 import re
@@ -26,6 +27,10 @@ MAX_TOTAL = 3 * 1024 * 1024
 MAX_RESOURCE = 1024 * 1024
 MAX_SECONDS = 24
 GATE = threading.BoundedSemaphore(1)
+LOCAL_LIMITS = dict(pages=100, assets=250, requests=400, hosts=20, total=100*1024*1024, resource=12*1024*1024, seconds=240)
+
+def local_full_enabled():
+    return os.getenv('WEB_AUDIT_LOCAL_FULL') == '1' and not os.getenv('VERCEL')
 CSS = re.compile(r"""url\(\s*(['"]?)([^)'"\r\n]+)\1\s*\)|(@import\s+)(['"])([^'"]+)\4""", re.I)
 JS = re.compile(r"""(\b(?:import|export)\s+(?:[^;\n]*?\bfrom\s*)?|\bimport\s*\(\s*)(["'])(\.{1,2}/[^"']+)\2""")
 ASSET_EXT = re.compile(r'\.(?:css|m?js|png|jpe?g|gif|webp|avif|svg|ico|woff2?|ttf|otf|eot|mp4|webm|mp3|wav|pdf|webmanifest)$', re.I)
@@ -129,7 +134,11 @@ def asset_links(doc, url):
     for el in doc.select('style,[style]'):
         yield from css_refs(el.get('style','') if el.has_attr('style') else el.get_text())
 
-def archive(seed):
+def archive(seed, *, renderer=None, limits=None):
+    limits = limits or dict(pages=MAX_PAGES, assets=MAX_ASSETS, requests=MAX_REQUESTS, hosts=MAX_HOSTS, total=MAX_TOTAL, resource=MAX_RESOURCE, seconds=MAX_SECONDS)
+    network_trace=[]
+    render_errors={}
+    rendered_pages=0
     seed = canonical(seed)
     if not seed:
         raise HTTPException(400,'Enter a public HTTPS website URL with no credentials or custom port.')
@@ -140,11 +149,11 @@ def archive(seed):
     page_seen, asset_seen = {seed}, set()
     caps = set()
     def budget():
-        if time.monotonic()-start >= MAX_SECONDS:
+        if time.monotonic()-start >= limits['seconds']:
             caps.add('Time budget reached')
-        if requests >= MAX_REQUESTS:
+        if requests >= limits['requests']:
             caps.add('Request budget reached')
-        if total >= MAX_TOTAL:
+        if total >= limits['total']:
             caps.add('Archive byte budget reached')
         return not caps
     def raw(url, limit):
@@ -152,7 +161,7 @@ def archive(seed):
         if not budget():
             raise HTTPException(429,'Capture budget reached')
         host = urlsplit(url).hostname
-        if host not in hosts and len(hosts) >= MAX_HOSTS:
+        if host not in hosts and len(hosts) >= limits['hosts']:
             raise HTTPException(429,'Host budget reached')
         hosts.add(host)
         requests += 1
@@ -170,9 +179,9 @@ def archive(seed):
             raise HTTPException(403,'Target robots.txt disallows this resource')
         return rules[host]
     def fetch(url, page):
-        nonlocal total
+        nonlocal total, rendered_pages
         policy(url)
-        status, ct, data = raw(url,min(MAX_RESOURCE,MAX_TOTAL-total))
+        status, ct, data = raw(url,min(limits['resource'],limits['total']-total))
         if status != 200:
             raise HTTPException(404 if status == 404 else 502,'Upstream HTTP '+str(status))
         media = ct.split(';')[0].strip().lower()
@@ -188,9 +197,54 @@ def archive(seed):
         occupied.add(path.lower())
         total += len(data)
         records[url] = (path,kind,data)
+        if page and renderer is not None:
+            def browser_fetch(target, resource_type):
+                nonlocal total
+                target=canonical(target)
+                if not target or not budget():
+                    raise HTTPException(403,'Browser resource denied')
+                # Only static asset requests and same-origin read-only data requests.
+                if resource_type in ('xhr','fetch'):
+                    if origin(target)!=origin(seed):
+                        raise HTTPException(403,'Cross-origin data request denied')
+                    policy(target)
+                    code, content_type, body=raw(target,min(limits['resource'],limits['total']-total))
+                    if code!=200 or not content_type.lower().startswith(('application/json','text/plain')):
+                        raise HTTPException(403,'Unsupported dynamic data response')
+                    total+=len(body)
+                    return content_type,body
+                if resource_type not in ('stylesheet','script','image','font','media'):
+                    raise HTTPException(403,'Browser resource type denied')
+                if target in records:
+                    saved=records[target]
+                    if saved[1]=='html': raise HTTPException(403,'Document not an asset')
+                    import mimetypes
+                    return mimetypes.guess_type(saved[0])[0] or 'application/octet-stream',saved[2]
+                if target not in asset_seen and len(asset_seen)>=limits['assets']:
+                    caps_assets.add('Asset limit reached')
+                    raise HTTPException(429,'Asset limit reached')
+                asset_seen.add(target)
+                asset_kind,body=fetch(target,False)
+                if asset_kind not in ('css','js','images','fonts','assets'):
+                    raise HTTPException(403,'Unsupported browser asset')
+                refs=css_refs(body.decode('utf-8','replace')) if asset_kind=='css' else js_refs(body.decode('utf-8','replace')) if asset_kind=='js' else []
+                for value in refs: queue_asset(value,target)
+                import mimetypes
+                return mimetypes.guess_type(records[target][0])[0] or 'application/octet-stream',body
+            try:
+                result=renderer.render(url,(ct,data),browser_fetch,max_html=min(limits['resource'],limits['total']-total+len(data)))
+                if len(result.html)-len(data)+total>limits['total']:
+                    raise ValueError('Rendered HTML exceeds archive budget')
+                total+=len(result.html)-len(data)
+                data=result.html
+                records[url]=(path,kind,data)
+                rendered_pages+=1
+                network_trace.extend(result.network[:max(0,5000-len(network_trace))])
+            except Exception as exc:
+                render_errors[url]=str(exc)[:300]
         return kind,data
     def queue_page(url):
-        if url not in page_seen and len(page_seen)<MAX_PAGES:
+        if url not in page_seen and len(page_seen)<limits['pages']:
             page_seen.add(url);pages.append(url)
         elif url not in page_seen:
             caps_pages.add('Page limit reached')
@@ -199,7 +253,7 @@ def archive(seed):
         url = canonical(value,base)
         if not url or url in asset_seen or url in page_seen:
             return
-        if len(asset_seen)>=MAX_ASSETS:
+        if len(asset_seen)>=limits['assets']:
             caps_assets.add('Asset limit reached');return
         asset_seen.add(url);assets.append(url)
     policy(seed)
@@ -224,7 +278,7 @@ def archive(seed):
     sitemap_seeds.extend(policy(seed).sitemaps)
     for target in nested_sitemap_urls(sitemap_seeds, normalize=canonical,
             same_origin=lambda u: origin(u)==origin(seed), read=read_sitemap,
-            max_maps=6, max_urls=MAX_PAGES*4,
+            max_maps=6, max_urls=limits['pages']*4,
             on_error=lambda url,exc: sitemap_errors.update({url:str(getattr(exc,'detail',exc))})):
         if not ASSET_EXT.search(urlsplit(target).path):
             queue_page(target)
@@ -241,6 +295,8 @@ def archive(seed):
             failures[url]=str(exc.detail)
     while assets and budget():
         url=assets.popleft()
+        if url in records:
+            continue
         try:
             kind,data=fetch(url,False)
             refs=css_refs(data.decode('utf-8','replace')) if kind=='css' else js_refs(data.decode('utf-8','replace')) if kind=='js' else []
@@ -249,7 +305,7 @@ def archive(seed):
         except HTTPException as exc:
             failures[url]=str(exc.detail)
     for url in list(pages)+list(assets):
-        failures[url]='Not captured within job limits'
+        if url not in records: failures[url]='Not captured within job limits'
     missing=set()
     def rewrite(value,base):
         if not value or value.startswith(('#','data:','mailto:','tel:','javascript:','blob:')):
@@ -305,17 +361,20 @@ def archive(seed):
         import json
         paths={r[0] for r in records.values()}
         required=[p for p in FEXIVA_PAGES if p not in paths] if urlsplit(seed).hostname=='fexiva.webflow.io' else []
-        warnings=['HTTP capture only; JavaScript-rendered content, CMS databases, authentication, forms and backend code are not reconstructed.','Use only with permission; review scripts and licences before running or republishing.','CMS directory is reserved for separately supplied authorized CMS data.']
-        report={'sitemapErrors':sitemap_errors,'source':seed,'pages':sum(r[1]=='html' for r in records.values()),'assets':sum(r[1]!='html' for r in records.values()),'failed':failures,'unresolved':sorted(missing)[:500],'missingRequiredPages':required,'limitsReached':sorted(caps|caps_pages|caps_assets),'warnings':warnings}
-        report['partial']=bool(failures or missing or required or caps or caps_pages or caps_assets or sitemap_errors)
+        warnings=[('Rendered HTML is a snapshot; scripts may require live APIs or rehydration changes.' if renderer is not None else 'HTTP capture only; JavaScript-rendered content is not reconstructed.'),'CMS databases, authentication, forms and backend code are not reconstructed.','Use only with permission; review scripts and licences before running or republishing.','CMS directory is reserved for separately supplied authorized CMS data.']
+        report={'renderedPages':rendered_pages,'renderErrors':render_errors,'sitemapErrors':sitemap_errors,'source':seed,'pages':sum(r[1]=='html' for r in records.values()),'assets':sum(r[1]!='html' for r in records.values()),'failed':failures,'unresolved':sorted(missing)[:500],'missingRequiredPages':required,'limitsReached':sorted(caps|caps_pages|caps_assets),'warnings':warnings}
+        report['partial']=bool(failures or missing or required or caps or caps_pages or caps_assets or sitemap_errors or render_errors)
         z.writestr(name+'/EXPORT_REPORT.json',json.dumps(report,indent=2,ensure_ascii=False))
-    if buffer.tell()>4*1024*1024:
+        if renderer is not None:
+            z.writestr(name+'/NETWORK_TRACE.json',json.dumps(network_trace,indent=2,ensure_ascii=False))
+    if buffer.tell()>(110*1024*1024 if renderer is not None else 4*1024*1024):
         raise HTTPException(413,'Archive exceeds server response limit; use a smaller site or authorized ZIP import.')
     return name,buffer.getvalue(),report
 
 @router.get('/status')
 def status():
-    return {'enabled':True,'mode':'bounded-public-https','robotsEnforced':True,'maxPages':MAX_PAGES,'maxAssets':MAX_ASSETS,'maxBytes':MAX_TOTAL,'javascriptRendering':False}
+    local=local_full_enabled()
+    return {'enabled':True,'mode':'local-rendered-https' if local else 'bounded-public-https','robotsEnforced':True,'maxPages':LOCAL_LIMITS['pages'] if local else MAX_PAGES,'maxAssets':LOCAL_LIMITS['assets'] if local else MAX_ASSETS,'maxBytes':LOCAL_LIMITS['total'] if local else MAX_TOTAL,'javascriptRendering':local}
 
 @router.post('')
 def auto_download(data:Input,request:Request):
@@ -327,7 +386,17 @@ def auto_download(data:Input,request:Request):
     if not GATE.acquire(blocking=False):
         raise HTTPException(429,'Capture service busy; try again later.')
     try:
-        name,content,report=archive(data.url)
+        if local_full_enabled():
+            if request.headers.get('host','').split(':')[0] not in ('127.0.0.1','localhost') or browser_origin != str(request.base_url).rstrip('/'):
+                raise HTTPException(403,'Local full capture requires the same-origin loopback UI')
+            from services.browser_renderer import BrowserRenderer
+            try:
+                with BrowserRenderer() as renderer:
+                    name,content,report=archive(data.url,renderer=renderer,limits=LOCAL_LIMITS)
+            except ImportError as exc:
+                raise HTTPException(503,'Install local browser requirements and Chromium first') from exc
+        else:
+            name,content,report=archive(data.url)
         return Response(content,media_type='application/zip',headers={'Content-Disposition':f'attachment; filename="{name}.zip"','Cache-Control':'no-store','X-Audit-Partial':str(report['partial']).lower(),'X-Audit-Pages':str(report['pages']),'X-Audit-Assets':str(report['assets']),'X-Audit-Filename':name+'.zip'})
     finally:
         GATE.release()

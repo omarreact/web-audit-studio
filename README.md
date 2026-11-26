@@ -106,3 +106,14 @@ Enter a public HTTPS URL and select **Download Website ZIP**. No token or enviro
 ## Upstream capture integration
 
 The public HTTP downloader incorporates selected MIT-licensed source elements from Website Downloader and Website Scraper, pinned in THIRD_PARTY_NOTICES.md. Nested sitemap traversal uses our guarded transport, including robots declarations and same-origin restrictions. Expanded asset discovery covers social previews, SVG references, lazy-load attributes, background images, audio/video tracks, and static JavaScript literals. No upstream unrestricted HTTP client or browser launcher is enabled on Vercel. JavaScript execution, large archives and cross-job recovery are still separate engineering work. Current Hobby limits remain unchanged.
+
+
+## Full local capture runtime (optional Chromium)
+
+The Vercel endpoint remains HTTP-only and bounded. For larger permitted sites and JavaScript rendering, launch the same UI on a dedicated local machine (no cloud plan or token):
+
+    python -m pip install -r requirements-local.txt
+    python -m playwright install chromium
+    python -m services.full_capture
+
+Open http://127.0.0.1:8789/ and enter a public HTTPS URL, then click Download Website ZIP. The local launcher binds loopback only and refuses Vercel. The local profile has up to 100 pages, 250 assets, 100 MiB source data and a 240-second scheduling budget. Rendered DOM is captured through Chromium, with guarded HTTP request interception, same-origin GET JSON/text data reads, network trace and fallback diagnostics. A fail-closed browser proxy, disabled service workers and WebSocket blocking reduce direct egress risk; run the worker in a dedicated network-isolated environment, not as a public browser service. Client cancellation cancels the download request, not guaranteed termination of already running server work. The network trace is not a full HAR, persistent queue/resume is not implemented, and the archive may require application rehydration fixes. No private data or robots-disallowed content is recovered. Public Vercel rendering and larger ZIPs still require a separate approved worker and storage architecture.
