@@ -41,7 +41,7 @@ jobs:
           python -m pip install -r requirements.txt pytest playwright
           python -m playwright install --with-deps chromium
       - name: Run bounded AI service and Chromium export tests
-        run: python -m pytest -q tests/test_vercel_app.py tests/test_ai_service.py tests/test_html_target_service.py tests/test_intelligence_browser.py tests/test_html_converter_browser.py tests/test_next_target_service.py tests/test_next_converter_browser.py
+        run: python -m pytest -q tests/test_vercel_app.py tests/test_auto_download.py tests/test_ai_service.py tests/test_html_target_service.py tests/test_intelligence_browser.py tests/test_html_converter_browser.py tests/test_next_target_service.py tests/test_next_converter_browser.py
       - name: Capture demo responsive evidence
         run: |
           python -m http.server 8000 --bind 127.0.0.1 >/tmp/web-audit-http.log 2>&1 &

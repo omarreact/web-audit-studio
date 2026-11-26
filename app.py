@@ -6,6 +6,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from services.analyzer.app import app, ALLOWED_ORIGINS
 from services.capture import router
+from services.auto_download import router as automatic_router
 
 ROOT = Path(__file__).resolve().parent
 for hostname in ('web-audit-studio.vercel.app', os.getenv('VERCEL_URL', '')):
@@ -16,6 +17,7 @@ for hostname in ('web-audit-studio.vercel.app', os.getenv('VERCEL_URL', '')):
 
 app.title = 'Web Audit Studio'
 app.include_router(router)
+app.include_router(automatic_router)
 app.mount('/assets', StaticFiles(directory=ROOT / 'assets'), name='assets')
 app.mount('/vendor', StaticFiles(directory=ROOT / 'vendor'), name='vendor')
 
