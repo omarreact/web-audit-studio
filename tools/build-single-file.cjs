@@ -5,7 +5,7 @@ const root = path.resolve(__dirname, '..');
 const source = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 const localScripts = new Set([
   'vendor/jszip.min.js','assets/ai-intelligence.js','assets/html-converter.js',
-  'assets/next-converter.js','assets/app.js'
+  'assets/next-converter.js','assets/organized-export.js','assets/app.js'
 ]);
 let result = source.replace(/<script src="([^"]+)"(?: defer)?><\/script>/g, (tag, file) => {
   if (!localScripts.has(file)) return tag;

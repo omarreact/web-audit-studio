@@ -66,3 +66,5 @@ assert.ok(new TextDecoder().decode(prepared.get('assets/site.css')).includes('ur
  console.log('PASS: path safety / URL rewriting / CSS & JS imports / six framework ZIP generators');
 })().catch(e=>{console.error(e);process.exitCode=1});
 
+
+require('./organized-export.test.cjs');
