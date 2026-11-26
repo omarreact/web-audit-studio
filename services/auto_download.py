@@ -6,7 +6,6 @@ import posixpath
 import re
 import threading
 import time
-import xml.etree.ElementTree as ET
 import zipfile
 from urllib.parse import urljoin, urlsplit, urlunsplit, unquote, quote
 
@@ -16,6 +15,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from protego import Protego
 from services import capture
+from services.upstream_capture import additional_assets, nested_sitemap_urls, script_literals, rewrite_script_literals
 
 router = APIRouter(prefix='/api/auto-download')
 MAX_PAGES = 16
@@ -91,7 +91,7 @@ def local_path(url, kind, seed):
         if '.' not in name:
             name += {'css':'.css','js':'.js','images':'.bin','fonts':'.bin'}.get(kind,'.bin')
         path = kind + '/' + clean_piece(u.hostname) + '/' + name
-    if u.query:
+    if u.query and not (kind == 'html' and url == seed):
         stem, ext = posixpath.splitext(path)
         path = stem + '-' + hashlib.sha256(u.query.encode()).hexdigest()[:10] + ext
     return path
@@ -109,6 +109,7 @@ def css_refs(source):
 def js_refs(source):
     for m in JS.finditer(source):
         yield m.group(3)
+    yield from script_literals(source)
 
 def asset_links(doc, url):
     for el in doc.select('script[src],img,source,video,audio,link[href],input[src],image[href],use[href]'):
@@ -123,6 +124,8 @@ def asset_links(doc, url):
                 for part in value.split(','):
                     if part.strip():
                         yield part.strip().split()[0]
+    for _,_,value in additional_assets(doc):
+        yield value
     for el in doc.select('style,[style]'):
         yield from css_refs(el.get('style','') if el.has_attr('style') else el.get_text())
 
@@ -207,21 +210,24 @@ def archive(seed):
     for value in asset_links(doc,seed):
         queue_asset(value,seed)
     pages.popleft()
-    # Same-origin sitemap only; no redirects, external sitemap traversal or XML entities.
-    sitemap = urljoin(seed,'/sitemap.xml')
-    try:
-        policy(sitemap)
-        code, _, data = raw(sitemap,512*1024)
-        if code==200 and b'<!DOCTYPE' not in data.upper():
-            root=ET.fromstring(data)
-            if root.tag.rsplit('}',1)[-1]=='urlset':
-                for node in root.iter():
-                    if node.tag.rsplit('}',1)[-1]=='loc' and node.text:
-                        target=canonical(node.text)
-                        if target and origin(target)==origin(seed) and not ASSET_EXT.search(urlsplit(target).path):
-                            queue_page(target)
-    except (HTTPException,ET.ParseError):
-        pass
+    # Upstream sitemap index traversal, using only our existing guarded transport.
+    sitemap_errors={}
+    def read_sitemap(url):
+        policy(url)
+        code, _, data=raw(url,512*1024)
+        if code in (404,410):
+            return None
+        if code!=200:
+            raise HTTPException(502,'Sitemap HTTP '+str(code))
+        return data
+    sitemap_seeds=[urljoin(seed,'/sitemap.xml')]
+    sitemap_seeds.extend(policy(seed).sitemaps)
+    for target in nested_sitemap_urls(sitemap_seeds, normalize=canonical,
+            same_origin=lambda u: origin(u)==origin(seed), read=read_sitemap,
+            max_maps=6, max_urls=MAX_PAGES*4,
+            on_error=lambda url,exc: sitemap_errors.update({url:str(getattr(exc,'detail',exc))})):
+        if not ASSET_EXT.search(urlsplit(target).path):
+            queue_page(target)
     while pages and budget():
         url=pages.popleft()
         try:
@@ -274,6 +280,10 @@ def archive(seed):
                 doc=BeautifulSoup(data,'html.parser')
                 for el in doc.select('base'):
                     el.decompose()
+                # Additional upstream selectors: metadata, SVG refs, lazy images, tracks.
+                for el,attr,value in additional_assets(doc):
+                    if attr not in ('href','src','poster','data-src'):
+                        el[attr]=rewrite(value,url)
                 for el in doc.select('[href],[src],[poster],[data-src],[srcset],[data-srcset],[style]'):
                     for attr in ('href','src','poster','data-src'):
                         if el.has_attr(attr):
@@ -289,14 +299,15 @@ def archive(seed):
             elif kind=='css':
                 data=rewrite_css(data.decode('utf-8','replace'),url).encode()
             elif kind=='js':
-                data=JS.sub(lambda m:m.group(1)+m.group(2)+rewrite(m.group(3),url)+m.group(2),data.decode('utf-8','replace')).encode()
+                text=JS.sub(lambda m:m.group(1)+m.group(2)+rewrite(m.group(3),url)+m.group(2),data.decode('utf-8','replace'))
+                data=rewrite_script_literals(text,lambda value: rewrite(value,url) if canonical(value,url) in records else value).encode()
             z.writestr(name+'/'+path,data)
         import json
         paths={r[0] for r in records.values()}
         required=[p for p in FEXIVA_PAGES if p not in paths] if urlsplit(seed).hostname=='fexiva.webflow.io' else []
         warnings=['HTTP capture only; JavaScript-rendered content, CMS databases, authentication, forms and backend code are not reconstructed.','Use only with permission; review scripts and licences before running or republishing.','CMS directory is reserved for separately supplied authorized CMS data.']
-        report={'source':seed,'pages':sum(r[1]=='html' for r in records.values()),'assets':sum(r[1]!='html' for r in records.values()),'failed':failures,'unresolved':sorted(missing)[:500],'missingRequiredPages':required,'limitsReached':sorted(caps|caps_pages|caps_assets),'warnings':warnings}
-        report['partial']=bool(failures or missing or required or caps or caps_pages or caps_assets)
+        report={'sitemapErrors':sitemap_errors,'source':seed,'pages':sum(r[1]=='html' for r in records.values()),'assets':sum(r[1]!='html' for r in records.values()),'failed':failures,'unresolved':sorted(missing)[:500],'missingRequiredPages':required,'limitsReached':sorted(caps|caps_pages|caps_assets),'warnings':warnings}
+        report['partial']=bool(failures or missing or required or caps or caps_pages or caps_assets or sitemap_errors)
         z.writestr(name+'/EXPORT_REPORT.json',json.dumps(report,indent=2,ensure_ascii=False))
     if buffer.tell()>4*1024*1024:
         raise HTTPException(413,'Archive exceeds server response limit; use a smaller site or authorized ZIP import.')
