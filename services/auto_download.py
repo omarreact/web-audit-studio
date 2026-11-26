@@ -15,7 +15,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from protego import Protego
 from services import capture
-from services.upstream_capture import additional_assets, nested_sitemap_urls, script_literals
+from services.upstream_capture import additional_assets, nested_sitemap_urls, script_literals, rewrite_script_literals
 
 router = APIRouter(prefix='/api/auto-download')
 MAX_PAGES = 16
@@ -299,7 +299,8 @@ def archive(seed):
             elif kind=='css':
                 data=rewrite_css(data.decode('utf-8','replace'),url).encode()
             elif kind=='js':
-                data=JS.sub(lambda m:m.group(1)+m.group(2)+rewrite(m.group(3),url)+m.group(2),data.decode('utf-8','replace')).encode()
+                text=JS.sub(lambda m:m.group(1)+m.group(2)+rewrite(m.group(3),url)+m.group(2),data.decode('utf-8','replace'))
+                data=rewrite_script_literals(text,lambda value: rewrite(value,url) if canonical(value,url) in records else value).encode()
             z.writestr(name+'/'+path,data)
         import json
         paths={r[0] for r in records.values()}

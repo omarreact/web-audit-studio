@@ -19,7 +19,7 @@ JS_ABS_URL_RE = re.compile(
     r"""["']((?:https?:)?//[^"']+\.(?:png|jpg|jpeg|gif|svg|webp|avif|ico|css|js|mjs|map|woff|woff2|ttf|eot|json|wasm|webmanifest)(?:\?[^"']*)?)["']""",
     re.IGNORECASE,
 )
-RESOURCE_SELECTORS = [["img","src"],["input","src"],["script","src"],["link[rel=\"stylesheet\"]","href"],["link[rel*=\"icon\"]","href"],["svg *[xlink:href]","xlink:href"],["svg *[href]","href"],["meta[property=\"og:image\"]","content"],["meta[property=\"og:image:url\"]","content"],["meta[property=\"og:image:secure_url\"]","content"],["meta[property=\"og:audio\"]","content"],["meta[property=\"og:audio:url\"]","content"],["meta[property=\"og:audio:secure_url\"]","content"],["meta[property=\"og:video\"]","content"],["meta[property=\"og:video:url\"]","content"],["meta[property=\"og:video:secure_url\"]","content"],["video","src"],["video source","src"],["video track","src"],["audio","src"],["audio source","src"],["audio track","src"],["[background]","background"]]
+RESOURCE_SELECTORS = [["img","src"],["input","src"],["script","src"],["link[rel=\"stylesheet\"]","href"],["link[rel*=\"icon\"]","href"],["svg *[xlink\\:href]","xlink:href"],["svg *[href]","href"],["meta[property=\"og:image\"]","content"],["meta[property=\"og:image:url\"]","content"],["meta[property=\"og:image:secure_url\"]","content"],["meta[property=\"og:audio\"]","content"],["meta[property=\"og:audio:url\"]","content"],["meta[property=\"og:audio:secure_url\"]","content"],["meta[property=\"og:video\"]","content"],["meta[property=\"og:video:url\"]","content"],["meta[property=\"og:video:secure_url\"]","content"],["video","src"],["video source","src"],["video track","src"],["audio","src"],["audio source","src"],["audio track","src"],["[background]","background"]]
 
 # Do not fetch generic JSON or source maps merely because script text mentions them.
 STATIC_LITERAL = re.compile(r'\.(?:png|jpe?g|gif|svg|webp|avif|ico|css|m?js|woff2?|ttf|eot|wasm|webmanifest)$', re.I)
@@ -33,6 +33,22 @@ def script_literals(source):
                     yield value
             except ValueError:
                 continue
+
+def rewrite_script_literals(source, resolve):
+    """Rewrite only known downloaded static resources, not arbitrary API strings."""
+    def replace(match):
+        value=match.group(1)
+        try:
+            if not STATIC_LITERAL.search(urlsplit(value).path):
+                return match.group(0)
+        except ValueError:
+            return match.group(0)
+        mapped=resolve(value)
+        if not mapped or mapped==value:
+            return match.group(0)
+        return match.group(0)[0]+mapped+match.group(0)[-1]
+    return JS_URL_RE.sub(replace, JS_ABS_URL_RE.sub(replace,source))
+
 
 def additional_assets(doc):
     for selector, attr in RESOURCE_SELECTORS:

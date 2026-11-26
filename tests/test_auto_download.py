@@ -95,6 +95,8 @@ def test_nested_sitemaps_and_additional_assets():
         html=z.read('Example/index.html').decode()
         assert 'images/example.com/social.png' in html
         assert 'images/example.com/lazy.png' in html
+        js=z.read('Example/js/example.com/app.js').decode()
+        assert '../../images/example.com/script.png' in js
 
 def test_sitemap_entity_rejected():
     from services.upstream_capture import nested_sitemap_urls
