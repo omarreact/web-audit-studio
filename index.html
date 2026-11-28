@@ -1,57 +1,42 @@
-<!doctype html>
-<html lang="en" class="dark">
+<!DOCTYPE html>
+<html lang="bn">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="color-scheme" content="dark light"><title>Web Audit Studio — Full Stack Migrator</title>
-<script src="https://cdn.tailwindcss.com"></script>
-<script>if(window.tailwind)tailwind.config={darkMode:'class',theme:{extend:{colors:{ink:'#0a101b',panel:'#111b2b',border:'#27354a',accent:'#38bdf8'}}}}</script>
-<script src="vendor/jszip.min.js"></script>
-<script src="assets/ai-intelligence.js"></script>
-<script src="assets/html-converter.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.52.2/min/vs/loader.min.js"></script>
-<link rel="stylesheet" href="assets/app.css">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>সাইট সেভ</title>
+  <meta name="description" content="একটা লিংক দিন। জিপ আনজিপ করে index.html খুললে ফোন বা কম্পিউটারের ব্রাউজারে সাইট দেখা যাবে।">
+  <link rel="stylesheet" href="assets/save.css">
 </head>
 <body>
-<div class="min-h-screen">
-<header class="bar border-b px-4 md:px-7 py-4 flex items-center justify-between gap-3 flex-wrap">
- <div class="flex gap-3 items-center"><div class="w-10 h-10 rounded-xl bg-sky-500/20 text-sky-300 flex items-center justify-center text-xl">⌘</div><div><h1 class="text-xl font-bold tracking-tight">Web Audit Studio <span class="text-sky-400">/ Full Stack Migrator</span></h1><p class="text-xs subtle mt-0.5">Public frontend reconnaissance · offline exports · editable workspace</p></div></div>
- <div class="flex items-center gap-2"><span id="globalState" class="badge">Ready</span><button id="themeToggle" class="btn" title="Toggle appearance">☀ / ☾</button><button id="helpBtn" class="btn">? Help</button></div>
-</header>
-<main class="max-w-[1920px] mx-auto p-3 md:p-5 space-y-4">
- <section class="surface rounded-xl p-4 md:p-5 space-y-4">
-  <div class="flex gap-4 items-start justify-between flex-wrap"><div><h2 class="font-bold text-lg">01 <span class="text-sky-400">Scan a public website</span></h2><p class="subtle text-xs mt-1">Browser-only scanner. No proxy, backend, credentials, or server-side rendering. Use only on websites you are authorized to inspect.</p></div><span class="badge">CORS-gated · same-origin crawl</span></div>
-  <div class="scanrow flex gap-2 items-stretch"><input id="target" type="url" class="field grow text-sm" aria-label="Website URL" placeholder="https://example.com" autocomplete="url" spellcheck="false"><button id="automaticDownloadBtn" class="btn primary" hidden>↓ Download Website ZIP</button><button id="cancelAutomaticBtn" class="btn" hidden>Cancel download</button><button id="scanBtn" class="btn">▶ Scan & capture</button><button id="stopBtn" disabled class="btn">■ Stop</button><button id="demoBtn" class="btn">Load demo</button><label class="btn" for="importZip">↑ Import ZIP</label><input id="importZip" type="file" accept=".zip,application/zip" hidden></div>
-  <div class="flex gap-3 items-center flex-wrap text-xs"><label class="flex gap-2 items-center">Depth <select id="depth" class="field !py-1.5"><option>0</option><option>1</option><option selected>2</option><option>3</option><option>4</option></select></label><label class="flex gap-2 items-center">Max pages <input id="maxPages" type="number" min="1" max="100" value="20" class="field !py-1.5 w-20"></label><label class="flex gap-2 items-center">Delay (ms) <input id="delay" type="number" min="250" max="10000" step="250" value="600" class="field !py-1.5 w-24"></label><label class="flex gap-2 items-center"><input id="sitemap" type="checkbox" checked class="accent-sky-400">Discover sitemap</label><label class="flex gap-2 items-center"><input id="robots" type="checkbox" checked class="accent-sky-400">Check robots.txt</label><label class="flex gap-2 items-center"><input id="captureAssets" type="checkbox" checked class="accent-sky-400">Capture assets</label><label class="flex gap-2 items-center"><input id="followImports" type="checkbox" checked class="accent-sky-400">Follow JS/CSS imports</label></div>
-  <div class="flex justify-between text-xs gap-3 flex-wrap"><div id="progressText" class="subtle">No scan yet. Try the built-in demo or scan a CORS-enabled site.</div><div id="stats" class="mono subtle">0 pages · 0 assets · 0 errors</div></div><div class="progress" role="progressbar" aria-label="Scan progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="progressFill"></div></div>
- </section>
- <div class="grid lg:grid-cols-[1fr_350px] gap-4">
-  <section class="surface rounded-xl p-4"><div class="flex items-center justify-between gap-2 flex-wrap"><h2 class="font-bold">02 Detected stack <span id="stackName" class="badge ml-2">Not scanned</span></h2><span id="confidence" class="text-xs subtle">Confidence —</span></div><div id="stackEvidence" class="mt-3 flex gap-2 flex-wrap"><span class="text-xs subtle">Evidence will appear after scanning.</span></div><div id="libraries" class="text-xs subtle mt-3"></div></section>
-  <p id="automaticDownloadNote" hidden class="text-xs subtle">Enter an HTTPS URL and download an organized archive automatically. Public, permitted resources only. Checking capture limits…</p>
-<section id="serverCaptureOptions" class="surface rounded-xl p-3" hidden><div class="flex flex-wrap items-center gap-3 text-xs"><label class="flex gap-2 items-center"><input id="serverCapture" type="checkbox" class="accent-sky-400">Authorized server capture</label><label>Access token <input id="captureToken" type="password" maxlength="256" autocomplete="off" class="field" placeholder="Configured owner token"></label><span id="serverCaptureStatus" class="subtle" role="status">Checking server…</span></div><p class="text-xs subtle mt-2">HTTPS only; robots.txt enforced; approved host list includes any licensed CDN assets. Token is not stored. Server capture is not a JavaScript rendering engine.</p></section>
-<section class="surface rounded-xl p-4"><h2 class="font-bold">Operational limits</h2><p class="text-xs subtle mt-2 leading-5">Browser capture requires CORS; authorized server capture can fetch configured public HTTPS hosts without browser CORS. If a scan is blocked, import an authorized Webflow or saved-site ZIP, then select Organized Website ZIP to categorize the pages and assets. Framework source, private server code, original React components, WordPress PHP, plugin PHP, and databases cannot be recovered from public frontend assets. JS-only routes may not render. Exports are best-effort reconstructions, not source-code clones.</p><p id="scanWarning" class="mt-2 text-xs text-amber-300" role="status"></p></section>
- </div>
- <section class="surface rounded-xl p-4 md:p-5 space-y-3" id="aiIntelligence">
-  <div class="flex items-center justify-between gap-3 flex-wrap"><div><h2 class="font-bold text-lg">AI Website Intelligence <span id="aiMode" class="badge">Hybrid · local rules</span></h2><p class="text-xs subtle mt-1">Analyze public capture locally. Optional Ollama/cloud enrichment requires a separate trusted Python service; cloud transfer requires explicit consent.</p></div><button id="aiAnalyzeBtn" class="btn primary" disabled>✦ Analyze captured site</button></div>
-  <div class="flex gap-3 flex-wrap items-center text-xs"><label class="flex flex-col gap-1">Optional AI service URL <input id="aiEndpoint" class="field w-72 max-w-full" type="url" placeholder="http://127.0.0.1:8788" autocomplete="off" spellcheck="false"></label><label class="flex gap-2 items-center"><input type="checkbox" id="aiCloudConsent" class="accent-sky-400"> Allow cloud AI only if local model unavailable</label></div>
-  <div class="flex flex-wrap gap-2 items-end"><label class="flex flex-col gap-1 text-xs">Conversion target <select class="field" id="aiTargetStack" aria-label="AI conversion target"><option value="html-static">HTML + CSS · safe static</option><option value="nextjs-static" selected>Next.js 16 · React App Router (static)</option><option value="wordpress-fse">WordPress FSE · editable blocks</option></select></label><button id="downloadAnalysis" disabled class="btn">↓ Analysis JSON</button><button id="downloadSafeHtml" disabled class="btn primary">↓ Convert to HTML ZIP</button><button id="downloadNativeNext" disabled class="btn primary">↓ Native Next.js ZIP (experimental)</button><button id="downloadEditableWp" disabled class="btn">↓ Editable WordPress FSE ZIP (experimental)</button></div>
-  <p class="text-xs subtle">HTML conversion preserves captured markup/style/assets where supported, but removes executable scripts, embeds and form submission. Legacy HTML Website export remains unchanged. Download includes evidence and review notes.</p>
-  <pre id="aiResult" class="ai-results text-xs" hidden aria-live="polite"></pre>
- </section>
- <section class="surface rounded-xl overflow-hidden"><div class="px-4 py-3 border-b border-slate-700/60 flex items-center justify-between gap-2 flex-wrap"><h2 class="font-bold">03 Workspace <span id="workspaceCount" class="text-xs subtle font-normal">0 files</span></h2><div class="flex items-center gap-2"><button id="searchBtn" class="btn">⌕ Find file <span class="kbd">Ctrl+P</span></button><button id="newFileBtn" class="btn">＋ File</button><button id="saveBtn" class="btn">Save edit <span class="kbd">Ctrl+S</span></button></div></div>
- <div class="layout">
-  <aside class="explorer pane border-r border-slate-700/60 px-2 py-3"><div class="px-2 text-xs uppercase tracking-wider subtle mb-2">Explorer · local workspace</div><div id="fileTree" class="space-y-0.5"><p class="text-xs subtle px-2">No files. Scan a URL or load demo.</p></div></aside>
-  <div class="editorwrap flex flex-col min-w-0"><div class="bar border-b flex items-center justify-between min-h-10"><div id="openTab" class="tab active mono truncate max-w-[65%]">No file selected</div><div class="px-3 text-xs subtle" id="dirtyFlag">Read/write</div></div><div class="flex-1 min-h-0" id="editor"><textarea id="fallbackEditor" class="field mono w-full h-full rounded-none resize-none" disabled placeholder="Choose a file to edit"></textarea></div><div class="border-t border-slate-700/60 px-3 py-1.5 flex justify-between text-xs subtle"><span id="editorLanguage">Plain text</span><span id="editorSize">0 B</span></div></div>
-  <aside class="inspector pane border-l border-slate-700/60 flex flex-col"><div class="bar border-b flex"><button data-panel="preview" class="tab active">Preview</button><button data-panel="findings" class="tab">Findings <span id="findingCount">0</span></button><button data-panel="assets" class="tab">Assets <span id="assetCount">0</span></button></div>
-   <div id="previewPanel" class="p-3 space-y-2 flex-1"><div class="flex gap-2 flex-wrap"><select id="previewPage" class="field !py-1.5 text-xs grow" aria-label="Preview page"></select><button id="previewBtn" class="btn">↻ Preview</button></div><p class="text-xs subtle">Static, sandboxed preview. Scripts/forms/navigation are disabled for safety. HTML and CSS edits are reflected when refreshed.</p><iframe id="previewFrame" title="Static website preview" sandbox="" referrerpolicy="no-referrer" class="w-full bg-white rounded-lg border border-slate-700" style="height:380px"></iframe><div id="previewMessage" class="text-xs subtle"></div></div>
-   <div id="findingsPanel" class="p-3 space-y-2 hidden text-xs"></div><div id="assetsPanel" class="p-3 space-y-2 hidden text-xs"></div>
-  </aside>
- </div></section>
- <section class="surface rounded-xl p-4 md:p-5"><div class="flex justify-between gap-3 flex-wrap items-start"><div><h2 class="font-bold text-lg">04 Download as…</h2><p class="text-xs subtle mt-1">Formats become available once files are captured or the demo is loaded. The suggested format reflects detection.</p></div><div class="flex gap-2 flex-wrap"><button id="reportBtn" disabled class="btn">↓ Report JSON</button><button id="csvBtn" disabled class="btn">↓ Findings CSV</button></div></div><div id="exports" class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-4"></div></section>
- <footer class="text-xs subtle text-center py-3">Web Audit Studio · Local browser processing only · No guarantees of complete capture, server-side source, or production-ready generated migrations.</footer>
-</main></div>
-<dialog id="quickOpen" class="quick-open"><div class="p-4"><div class="flex justify-between items-center"><h2 class="text-lg font-bold">Quick open · Files</h2><button id="quickClose" class="btn" aria-label="Close">✕</button></div><input id="quickInput" class="field w-full mt-3" placeholder="Search captured files…" autocomplete="off" spellcheck="false"><div id="quickResults" class="quick-results"></div><p class="subtle text-xs mt-2">↑ ↓ to select · Enter to open · Esc to close</p></div></dialog>
-<dialog id="modal" class="rounded-xl p-0 border border-slate-600 text-slate-100 bg-[#132134] backdrop:bg-black/70 w-[min(600px,94vw)]"><div class="p-5"><div class="flex justify-between items-start"><h2 id="modalTitle" class="font-bold text-lg">Info</h2><button onclick="document.getElementById('modal').close()" class="btn">✕</button></div><div id="modalText" class="text-sm mt-3 leading-6 text-slate-300 whitespace-pre-line"></div><button onclick="document.getElementById('modal').close()" class="btn primary mt-4">Got it</button></div></dialog>
-<script src="assets/next-converter.js" defer></script>
-<script src="assets/organized-export.js" defer></script>
-<script src="assets/app.js" defer></script>
-</body></html>
+  <main class="wrap">
+    <header class="top">
+      <p class="mark">সাইট সেভ</p>
+      <button type="button" id="theme" class="icon" aria-label="থিম বদলান">◐</button>
+    </header>
+    <h1>ওয়েবসাইট সেভ করুন</h1>
+    <p class="lead">লিংক দিন। একটা জিপ পাবেন — আনজিপ করে <strong>index.html</strong> খুললেই সাইট দেখা যাবে, ফোনে বা কম্পিউটারে।</p>
+    <form id="form">
+      <label for="url">ওয়েবসাইটের লিংক</label>
+      <input id="url" type="url" inputmode="url" placeholder="https://example.com" autocomplete="off" spellcheck="false">
+      <button type="submit" id="go" class="primary">সেভ করুন</button>
+      <button type="button" id="sample" class="quiet">নমুনা জিপ দেখুন</button>
+    </form>
+    <p id="error" class="error" hidden></p>
+    <section id="status" class="card" hidden>
+      <p id="statusTitle" class="card-title"></p>
+      <p id="statusDetail" class="muted"></p>
+      <div class="bar" id="barWrap"><div id="bar"></div></div>
+      <button type="button" id="again" class="primary" hidden>আবার ডাউনলোড</button>
+    </section>
+    <ol class="steps">
+      <li><span>১</span><div><b>লিংক দিন</b><p>যে পেজটা রাখতে চান, তার ঠিকানা বসান।</p></div></li>
+      <li><span>২</span><div><b>সেভ করুন</b><p>পেজ, স্টাইল, ছবি আর ফন্ট এক জিপে জমা হয়।</p></div></li>
+      <li><span>৩</span><div><b>index.html খুলুন</b><p>আনজিপ করলে css, js, images ফোল্ডার পাবেন। index.html খুললেই ব্রাউজারে চলবে।</p></div></li>
+    </ol>
+    <p class="note">GitHub Pages ব্রাউজার থেকে সাইট আনে। যে সাইট CORS আটকায়, সেটা এখান থেকে সেভ হবে না। জাভাস্ক্রিপ্ট দিয়ে আঁকা পেজ অফলাইনে অসম্পূর্ণ থাকতে পারে।</p>
+    <p class="foot"><a href="studio.html">পুরনো স্টুডিও</a> — অডিট, এডিটর আর ফ্রেমওয়ার্ক এক্সপোর্ট।</p>
+  </main>
+  <script src="vendor/jszip.min.js"></script>
+  <script src="assets/save.js"></script>
+</body>
+</html>
