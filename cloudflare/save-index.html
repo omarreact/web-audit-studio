@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>সাইট সেভ</title>
+  <meta name="description" content="একটা লিংক দিন। জিপ আনজিপ করে index.html খুললে ফোন বা কম্পিউটারের ব্রাউজারে সাইট দেখা যাবে।">
+  <link rel="stylesheet" href="assets/save.css">
+</head>
+<body>
+  <main class="wrap">
+    <header class="top">
+      <p class="mark">সাইট সেভ</p>
+      <button type="button" id="theme" class="icon" aria-label="থিম বদলান">◐</button>
+    </header>
+    <h1>ওয়েবসাইট সেভ করুন</h1>
+    <p class="lead">লিংক দিন। একটা জিপ পাবেন — আনজিপ করে <strong>index.html</strong> খুললেই সাইট দেখা যাবে, ফোনে বা কম্পিউটারে।</p>
+    <form id="form">
+      <label for="url">ওয়েবসাইটের লিংক</label>
+      <input id="url" type="url" inputmode="url" placeholder="https://example.com" autocomplete="off" spellcheck="false">
+      <button type="submit" id="go" class="primary">সেভ করুন</button>
+      <button type="button" id="sample" class="quiet">নমুনা জিপ দেখুন</button>
+    </form>
+    <p id="error" class="error" hidden></p>
+    <section id="status" class="card" hidden>
+      <p id="statusTitle" class="card-title"></p>
+      <p id="statusDetail" class="muted"></p>
+      <div class="bar" id="barWrap"><div id="bar"></div></div>
+      <button type="button" id="again" class="primary" hidden>আবার ডাউনলোড</button>
+    </section>
+    <ol class="steps">
+      <li><span>১</span><div><b>লিংক দিন</b><p>যে পেজটা রাখতে চান, তার ঠিকানা বসান।</p></div></li>
+      <li><span>২</span><div><b>সেভ করুন</b><p>পেজ, স্টাইল, ছবি আর ফন্ট এক জিপে জমা হয়।</p></div></li>
+      <li><span>৩</span><div><b>index.html খুলুন</b><p>আনজিপ করলে css, js, images ফোল্ডার পাবেন। index.html খুললেই ব্রাউজারে চলবে।</p></div></li>
+    </ol>
+    <p class="note">পাবলিক পেজ এখান থেকে আনা হয়, তাই বেশিরভাগ সাইট সেভ হয়। লগইনের ভিতরের পেজ আর প্রাইভেট নেটওয়ার্ক আসে না। জাভাস্ক্রিপ্ট দিয়ে আঁকা কিছু সাইট অফলাইনে অসম্পূর্ণ থাকতে পারে।</p>
+  </main>
+  <script src="vendor/jszip.min.js"></script>
+  <script src="assets/save.js"></script>
+</body>
+</html>
