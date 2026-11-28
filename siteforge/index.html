@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PIN SiteForge</title>
+  <meta name="description" content="যেকোনো পাবলিক ওয়েবসাইট থেকে সম্পাদনাযোগ্য WordPress ব্লক থিম।">
+  <link rel="icon" href="favicon.svg">
+  <link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="./">
+      <span class="mark" aria-hidden="true"></span>
+      <span>
+        <strong>PIN SiteForge</strong>
+        <small>PINCODE IT</small>
+      </span>
+    </a>
+    <button type="button" id="theme" class="icon" aria-label="থিম বদলান">◐</button>
+  </header>
+  <main class="wrap">
+    <p class="kicker">Website → WordPress Block Theme</p>
+    <h1>যেকোনো সাইট থেকে সম্পাদনাযোগ্য WordPress থিম।</h1>
+    <p class="lead">একটা পাবলিক লিংক দিন, অথবা HTML জিপ আপলোড করুন। থিমের নাম বসান। বাকি কাজ — অ্যাসেট, ডিজাইন টোকেন, নেটিভ ব্লক আর ইনস্টলযোগ্য থিম জিপ — এখানেই হয়।</p>
+
+    <section class="panel" id="inputPanel">
+      <div class="tabs">
+        <button type="button" class="tab on" data-tab="url">লিংক</button>
+        <button type="button" class="tab" data-tab="zip">HTML জিপ</button>
+      </div>
+      <form id="urlForm">
+        <label for="url">ওয়েবসাইটের লিংক</label>
+        <input id="url" type="url" inputmode="url" placeholder="https://example.com" autocomplete="off" spellcheck="false">
+        <button class="primary" type="submit" id="analyze">বিশ্লেষণ করুন</button>
+      </form>
+      <form id="zipForm" hidden>
+        <label for="zip">HTML জিপ</label>
+        <input id="zip" type="file" accept=".zip,application/zip">
+        <p class="hint">জিপের ভিতরে index.html থাকতে হবে। স্ক্রিপ্ট চালানো হয় না।</p>
+      </form>
+      <p id="error" class="error" hidden></p>
+    </section>
+
+    <section class="panel" id="work" hidden>
+      <p class="status" id="status">তৈরি হচ্ছে</p>
+      <div class="bar"><div id="bar"></div></div>
+      <div class="swatches" id="swatches"></div>
+      <form id="meta">
+        <div class="grid">
+          <label>থিমের নাম<input id="themeName" required maxlength="60"></label>
+          <label>স্লাগ<input id="themeSlug" required maxlength="40" pattern="[a-z][a-z0-9-]{0,39}"></label>
+          <label>ভার্সন<input id="themeVersion" value="0.0.1" required pattern="\d+\.\d+\.\d+"></label>
+          <label>লেখক<input id="themeAuthor" required maxlength="80"></label>
+          <label>লেখকের URL<input id="authorUrl" type="url" placeholder="https://"></label>
+          <label>থিমের URL<input id="themeUrl" type="url" placeholder="https://"></label>
+          <label>প্রাথমিক রং<input id="primary" type="text" placeholder="#1f6f6a"></label>
+          <label>দ্বিতীয় রং<input id="secondary" type="text" placeholder="#e7a23a"></label>
+        </div>
+        <label>বিবরণ<textarea id="themeDesc" rows="2" maxlength="240"></textarea></label>
+        <fieldset>
+          <legend>জেনারেশন মোড</legend>
+          <label class="choice"><input type="radio" name="mode" value="clone" checked> সম্পূর্ণ ক্লোন — মূল লেখা থিমে থাকবে</label>
+          <label class="choice"><input type="radio" name="mode" value="reusable"> আবার ব্যবহারযোগ্য ডিজাইন — লেখা পরে বদলানো যাবে</label>
+        </fieldset>
+        <div class="actions">
+          <button class="primary" type="submit" id="generate">WordPress থিম তৈরি করুন</button>
+          <button class="quiet" type="button" id="htmlZip">শুধু HTML জিপ</button>
+        </div>
+      </form>
+      <div id="done" hidden>
+        <h2 id="doneTitle">থিম তৈরি হয়েছে</h2>
+        <p id="doneDetail" class="hint"></p>
+        <ul id="checks"></ul>
+        <div class="actions">
+          <button type="button" class="primary" id="downloadTheme">থিম জিপ</button>
+          <button type="button" class="quiet" id="downloadPack">পূর্ণ প্যাকেজ</button>
+          <a class="quiet" id="playground" href="https://playground.wordpress.net/" target="_blank" rel="noreferrer">Playground-এ খুলুন</a>
+        </div>
+        <p class="hint">থিম জিপ সরাসরি Appearance → Themes → Upload Theme দিয়ে ইনস্টল হয়। ভিজ্যুয়াল পার্থক্য এখানে মাপা হয়নি — রিপোর্ট দেখে নিন।</p>
+      </div>
+    </section>
+  </main>
+  <script src="vendor/jszip.min.js"></script>
+  <script src="assets/compile.js"></script>
+  <script src="assets/app.js"></script>
+</body>
+</html>
